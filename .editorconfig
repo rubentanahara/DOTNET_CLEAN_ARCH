@@ -425,3 +425,6 @@ dotnet_diagnostic.SA1615.severity = none
 
 [**/Migrations/*]
 generated_code = true
+
+[Makefile]
+indent_style = tab
