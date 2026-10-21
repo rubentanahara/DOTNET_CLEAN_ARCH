@@ -1,0 +1,30 @@
+[
+  {
+    "id": "F01",
+    "behavior": "GET /test returns the seeded test string",
+    "test_filter": "FullyQualifiedName~TestEndpointTests",
+    "state": "passing",
+    "evidence": "template baseline"
+  },
+  {
+    "id": "F02",
+    "behavior": "Notes CRUD over HTTP: create, get, list, update and delete; a blank title returns 400 and a missing note returns 404",
+    "test_filter": "FullyQualifiedName~NotesEndpointTests",
+    "state": "passing",
+    "evidence": "template baseline"
+  },
+  {
+    "id": "F03",
+    "behavior": "Sender dispatches each request to its handler and Publisher dispatches domain events to their handlers",
+    "test_filter": "FullyQualifiedName~Common.Messaging",
+    "state": "passing",
+    "evidence": "template baseline"
+  },
+  {
+    "id": "F04",
+    "behavior": "Project references follow the Clean Architecture dependency rule",
+    "test_filter": "FullyQualifiedName~LayerDependencyTests",
+    "state": "passing",
+    "evidence": "template baseline"
+  }
+]
