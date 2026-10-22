@@ -18,6 +18,7 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 - `make format`: fixes formatting and line endings automatically.
 - `make run`: starts the API on http://localhost:5001 (Swagger at `/swagger`, health at `/health`).
 - Each step writes its full output to `.agent/` (`build.log`, `lint.log`, `test.log`, `smoke.log`).
+- Prefer these targets over raw `dotnet` commands.
 
 ## Layout
 | Project | Holds | May reference |
@@ -63,5 +64,6 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 ## Harness wiring
 - Claude Code and Copilot CLI read this file and the stop hook in `.claude/settings.json`. Claude Code also takes its permissions from it.
 - Codex reads this file and `.codex/`: trust the project, then approve the stop hook once with `/hooks`.
+  Its sandbox blocks the local sockets `dotnet` needs, so `.codex/rules/dotnet.rules` lets `make`, `dotnet build/test/format` and `feature.sh` run outside it, and forbids `git push`.
 - CI runs `make check` on every pull request (`.github/workflows/ci.yml`).
 - The Copilot cloud agent prepares its environment with `.github/workflows/copilot-setup-steps.yml`.

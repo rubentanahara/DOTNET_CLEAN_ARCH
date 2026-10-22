@@ -1,0 +1,28 @@
+prefix_rule(
+    pattern = ["make", ["check", "build", "test", "lint", "format", "smoke"]],
+    decision = "allow",
+    justification = "dotnet needs local sockets for MSBuild worker nodes, the test host and the smoke test, and the workspace-write sandbox blocks them",
+    match = ["make check", "make format"],
+    not_match = ["make run", "make setup"],
+)
+
+prefix_rule(
+    pattern = ["dotnet", ["build", "test", "format"]],
+    decision = "allow",
+    justification = "Same local sockets as make; agents should prefer the make targets",
+    match = ["dotnet test --filter FullyQualifiedName~NotesEndpointTests"],
+)
+
+prefix_rule(
+    pattern = [["scripts/agent/feature.sh", "./scripts/agent/feature.sh"]],
+    decision = "allow",
+    justification = "feature.sh done runs make check and dotnet test, which need the same local sockets",
+    match = ["scripts/agent/feature.sh done F01"],
+)
+
+prefix_rule(
+    pattern = ["git", "push"],
+    decision = "forbidden",
+    justification = "Agents never push; a human reviews and pushes",
+    match = ["git push origin main"],
+)

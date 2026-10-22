@@ -1,3 +1,7 @@
+ifeq ($(CODEX_SANDBOX),seatbelt)
+$(error The Codex sandbox blocks the local sockets dotnet needs, so this would hang. Run the same make command again with escalated permissions. .codex/rules/dotnet.rules allows make outside the sandbox once the project is trusted)
+endif
+
 SOLUTION := $(firstword $(wildcard *.slnx))
 API_PROJECT := $(firstword $(wildcard src/*.Api/*.Api.csproj))
 LOGS := .agent
