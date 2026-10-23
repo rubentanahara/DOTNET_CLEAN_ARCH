@@ -73,4 +73,54 @@ public class NotesEndpointTests(WebAppFactory factory)
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
+
+    [Fact]
+    public async Task Get_ExistingNote_ReturnsOk()
+    {
+        var client = factory.CreateClient();
+        var created = await CreateNote(client);
+
+        var response = await client.GetAsync($"/notes/{created.Id}");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task List_ReturnsOk()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/notes");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Update_BlankTitle_ReturnsBadRequest()
+    {
+        var client = factory.CreateClient();
+        var created = await CreateNote(client);
+
+        var response = await client.PutAsJsonAsync($"/notes/{created.Id}", new UpdateNoteRequest("   ", "body"));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Delete_MissingNote_ReturnsNotFound()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.DeleteAsync("/notes/999999");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    private static async Task<NoteResponse> CreateNote(HttpClient client)
+    {
+        var response = await client.PostAsJsonAsync("/notes", new CreateNoteRequest("title", "content"));
+        var note = await response.Content.ReadFromJsonAsync<NoteResponse>();
+        note.ShouldNotBeNull();
+        return note;
+    }
 }
