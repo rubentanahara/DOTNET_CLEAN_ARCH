@@ -14,8 +14,9 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 ## Commands
 - `make setup`: first run. Restores tools and packages and installs the git hooks.
 - `make check`: the only definition of green. Hook config, skill copy, agent copy, harness script tests and unused package checks, build (warnings are errors), format check, all tests, API smoke test.
-  It prints `CHECK PASSED`, or `CHECK FAILED at <step>` with the failing lines and the fix to apply.
+  It prints `OK   <step>` as each step passes, then `CHECK PASSED`, or `CHECK FAILED at <step>` with the failing lines and the fix to apply. `setup`, `format`, `clean` and `rename` print `OK   <name>` too, and `rename` prints `RENAME FAILED` with the reason.
 - `make format`: fixes formatting and line endings automatically.
+- `make rename NAME=<Name>`: renames the template to `<Name>` and replaces the git history with a fresh `git init` (runs `rename.sh`). Commit and push everything first.
 - `make run`: starts the API on http://localhost:5001 (Swagger at `/swagger`, health at `/health`).
 - Each step writes its full output to `.agent/` (`build.log`, `lint.log`, `test.log`, `smoke.log`).
 - Prefer these targets over raw `dotnet` commands.
