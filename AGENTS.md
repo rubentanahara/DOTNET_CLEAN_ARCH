@@ -7,7 +7,7 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 1. Never edit or delete a test to make it pass. Fix the code. Change a test only when the requirement changed, and say so.
 2. Never silence analyzers: no `#pragma warning disable`, no `NoWarn`, no severity changes in `.editorconfig`.
 3. Add NuGet packages only through `Directory.Packages.props` (central package management), and ask first.
-4. Never `git push`. Commit only when asked, using Conventional Commits (`.husky/commit-msg` enforces it).
+4. Commit, push and open pull requests only when asked. Use Conventional Commits (`.husky/commit-msg` enforces it). Work on a feature branch, push it, and open a PR to `main` with `gh pr create`. Never push to `main` and never force-push.
 5. Never edit `feature_list.json` by hand. Use `scripts/agent/feature.sh`.
 6. Do not add MediatR, AutoMapper, or EF migrations. Messaging is in-house (`ISender`, `IPublisher`), mapping is by hand, and the schema lives in `DatabaseInitializer.cs`.
 
@@ -66,6 +66,6 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 - Copilot CLI also reads `.github/hooks/session-kickoff.json`, which submits a first prompt so the session-start hook runs at launch.
 - The hooks in `.codex/hooks.json` must match the hooks in `.claude/settings.json`; `make check` fails at `hooks` when they differ. The hook logic lives only in `scripts/agent/`.
 - Codex reads this file and `.codex/`: trust the project, then approve the session-start and stop hooks with `/hooks`, again after any change to `.codex/hooks.json`.
-  Its sandbox blocks the local sockets `dotnet` needs, so `.codex/rules/dotnet.rules` lets `make`, `dotnet build/test/format` and `feature.sh` run outside it, and forbids `git push`.
+  Its sandbox blocks the local sockets `dotnet` needs, so `.codex/rules/dotnet.rules` lets `make`, `dotnet build/test/format` and `feature.sh` run outside it, and forbids pushing to `main` and force-pushing.
 - CI runs `make check` on every pull request (`.github/workflows/ci.yml`).
 - The Copilot cloud agent prepares its environment with `.github/workflows/copilot-setup-steps.yml`.

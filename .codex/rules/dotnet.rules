@@ -21,8 +21,17 @@ prefix_rule(
 )
 
 prefix_rule(
-    pattern = ["git", "push"],
+    pattern = ["git", "push", "origin", "main"],
     decision = "forbidden",
-    justification = "Agents never push; a human reviews and pushes",
-    match = ["git push origin main"],
+    justification = "main changes only through a reviewed pull request; push a feature branch and open a PR",
+    match = ["git push origin main", "git push origin main --tags"],
+    not_match = ["git push -u origin feat/session-start-hook"],
+)
+
+prefix_rule(
+    pattern = ["git", "push", ["--force", "-f", "--force-with-lease"]],
+    decision = "forbidden",
+    justification = "Agents never rewrite published history",
+    match = ["git push --force origin feat/x", "git push -f origin feat/x"],
+    not_match = ["git push -u origin feat/x"],
 )
