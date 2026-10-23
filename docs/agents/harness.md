@@ -7,13 +7,20 @@ Each section says whether it is **built** or **planned**. Keep this file true: c
 ## 1. The five subsystems (built)
 | Subsystem | Here |
 |---|---|
-| Instructions | `AGENTS.md` routes to `docs/agents/*.md`. Skills `feature` and `ship` in `.agents/skills/`, copied to `.claude/skills/`. Subagents in `.claude/agents/`, generated into `.codex/agents/` by `scripts/agent/sync-agents.sh`. |
+| Instructions | `AGENTS.md` is a short router: hard rules, commands, and a table of topic files (`ARCHITECTURE.md`, `GUARDRAILS.md`, `docs/agents/*.md`) with the task that needs each one, so an agent loads only what its task needs. Skills in `.agents/skills/`, copied to `.claude/skills/`. Subagents in `.claude/agents/`, generated into `.codex/agents/` by `scripts/agent/sync-agents.sh`. |
 | Tools | `make` targets, `scripts/agent/feature.sh`. |
 | Environment | `make setup`, `global.json`, SQLite in memory. Nothing external is needed. |
 | State | `feature_list.json` (scope and state), `PROGRESS.md` (why and what next), git history. |
 | Feedback | `make check`: analyzers as errors, format, unit, architecture and integration tests, API smoke test. Each failure prints its fix. |
 
-Hooks close the loop at both ends: the session-start hook injects state and a fresh `make check`, and the stop hook refuses to stop on a red check or an unchanged `PROGRESS.md`.
+Hooks close the loop at both ends: the session-start hook injects state and a fresh `make check`, and the stop hook refuses to stop on a red check or an unchanged `PROGRESS.md`. What enforces each guardrail in each CLI, and the known gaps: `GUARDRAILS.md`.
+
+How each CLI loads the instructions:
+- All three read `AGENTS.md`. Claude Code and Copilot CLI take their hooks from `.claude/settings.json`, Codex from `.codex/hooks.json`.
+- Skills live in `.agents/skills/<name>/SKILL.md`, which Codex and Copilot CLI read, and are copied to `.claude/skills/` for Claude Code. `make check` fails at `skills` when the copies differ. Skills: `prd` (requirements in `docs/prd/`), `backlog` (cut a PRD into stories), `feature`, `tdd` (one acceptance criterion at a time, test first), `verify` (independent read-only review, run by a fresh session or subagent), `ship`, `grilling` (stress-test a plan), `handoff` (summary for the next session, on the clipboard), `prompt-rewrite`. Invoke them with `/<name>` in Claude Code and Copilot CLI, and with `$<name>` in Codex.
+- Subagents live in `.claude/agents/<name>.md`, which Claude Code and Copilot CLI read. Codex reads only `.codex/agents/<name>.toml` and needs underscores in names, so `scripts/agent/sync-agents.sh` generates those copies; edit `.claude/agents`, then run it. `make check` fails at `agents` when the copies differ. Frontmatter is only `name`, `description` and `tools`: model names differ per CLI, and Codex has no per-agent tool list, so a read-only agent is read-only there only by its prompt. Agents: `architect`, `security-engineer`, `test-generator`, `refactoring-expert`, `tech-lead` (`security_engineer` and so on in Codex).
+- Codex needs the project trusted, and its hooks approved with `/hooks` after any change to `.codex/hooks.json`.
+- The Copilot cloud agent prepares its environment with `.github/workflows/copilot-setup-steps.yml`.
 
 ## 2. One source of truth, synced with GitHub in near real time (repo to GitHub built, GitHub to repo built)
 The repo is the system of record. GitHub is a live view of it and an inbox for changes, never a second owner of the same field.

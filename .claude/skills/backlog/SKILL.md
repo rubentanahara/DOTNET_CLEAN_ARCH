@@ -10,7 +10,7 @@ Turn requirements into stories the harness can schedule, run in parallel safely 
 ## 1. Read
 - The PRD in full, or the request. Skip any requirement that waits on an open question, and say which.
 - `scripts/agent/feature.sh status` for the existing epics, ids and sprints. New ids continue after the highest one: F05 follows F04.
-- The Layout section of `AGENTS.md` and `docs/agents/add-feature.md`. Every story is one vertical slice through those layers.
+- `ARCHITECTURE.md` and `docs/agents/add-feature.md`. Every story is one vertical slice through those layers.
 
 ## 2. Draft the fragment
 **Epics:** one per aggregate or feature folder (Consultants, Achievements). Stories of different epics then touch different folders and can run in parallel. Give sprints in dependency order.

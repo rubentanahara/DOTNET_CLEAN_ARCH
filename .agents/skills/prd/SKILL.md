@@ -18,7 +18,7 @@ Use a kebab-case file name and the template below. Keep only sections with conte
 - Each functional requirement has a heading `### FR-<n> <name>`. Stories cite it as `docs/prd/<feature>.md#FR-<n>`, and an agent working the story reads only that section. Never renumber; mark a dropped requirement "Removed" instead.
 - State each requirement as rules a test can check: who may do what, which state changes are allowed, and which error each refusal returns. Use the repo's mapping: 400 invalid input, 401 no identity, 403 not allowed, 404 not found, 409 not allowed in the current state.
 - Give every non-functional requirement a number or a check, such as "every state change records who made it and when".
-- Stay inside the stack in `AGENTS.md`: a backend API in the Clean Architecture layers, Dapper, `ErrorOr`. Anything that needs a new NuGet package, a secret or infrastructure goes under "Needs approval" with the reason, because `AGENTS.md` requires asking first.
+- Stay inside the stack in `ARCHITECTURE.md`: a backend API in the Clean Architecture layers, Dapper, `ErrorOr`. Anything that needs a new NuGet package, a secret or infrastructure goes under "Needs approval" with the reason, because `AGENTS.md` requires asking first.
 - Write for a reader with no context. Define each domain term once, under Concepts and states.
 
 ```markdown

@@ -4,7 +4,7 @@ set -uo pipefail
 readonly PROGRESS_FILE=PROGRESS.md
 readonly FEATURES_FILE=feature_list.json
 readonly FEATURE_SCRIPT=scripts/agent/feature.sh
-readonly PROGRESS_MAX_LINES=60
+readonly HOOK_CONTEXT_MAX_CHARS=9000
 readonly WAVES_SHOWN=5
 readonly LOG_FILE=.agent/session-start.log
 readonly FINGERPRINT_SCRIPT=scripts/agent/tree-fingerprint.sh
@@ -31,11 +31,15 @@ backlog_summary() {
   echo "${waves:-Nothing. Every scheduled story is passing.}" | head -n "$WAVES_SHOWN"
 }
 
-progress_excerpt() {
-  awk -v max="$PROGRESS_MAX_LINES" -v file="$PROGRESS_FILE" '
-    NR <= max
-    END { if (NR > max) print "[Only the first " max " of " NR " lines are shown. Read " file " for the rest.]" }
-  ' "$PROGRESS_FILE" 2> /dev/null
+fit_hook_limit() {
+  local text=$1
+  local note="[Cut to $HOOK_CONTEXT_MAX_CHARS characters to stay under the 10000 Claude Code keeps in context. Read $PROGRESS_FILE for the rest.]"
+  if (( ${#text} <= HOOK_CONTEXT_MAX_CHARS )); then
+    printf '%s' "$text"
+    return
+  fi
+  text=${text:0:HOOK_CONTEXT_MAX_CHARS - ${#note} - 1}
+  printf '%s\n%s' "${text%$'\n'*}" "$note"
 }
 
 record_session_baseline() {
@@ -65,17 +69,18 @@ check_output=$(make check 2>&1)
 check_result=$(echo "$check_output" | tail -n 1)
 
 context=$(
-  echo "Session start. Read this before editing. The make check baseline below ran just now."
+  echo "Session start. Read this before editing. make check ran just now: $check_result"
   echo
-  echo "## $PROGRESS_FILE"
-  progress_excerpt
+  echo "## make check"
+  echo "$check_output"
   echo
   echo "## Backlog in $FEATURES_FILE (scripts/agent/feature.sh show <id> prints one story)"
   backlog_summary
   echo
-  echo "## make check"
-  echo "$check_output"
+  echo "## $PROGRESS_FILE"
+  cat "$PROGRESS_FILE" 2> /dev/null
 )
+context=$(fit_hook_limit "$context")
 
 notice="session-start hook ran in $cli: loaded PROGRESS.md and $(open_story_count) open story(ies). make check: $check_result"
 mkdir -p "$(dirname "$LOG_FILE")"
