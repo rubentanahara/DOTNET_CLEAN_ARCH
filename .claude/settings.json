@@ -12,8 +12,10 @@
       "Bash(git show *)"
     ],
     "deny": [
-      "Bash(git push)",
-      "Bash(git push *)",
+      "Bash(git push origin main)",
+      "Bash(git push origin main *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
       "Edit(./feature_list.json)",
       "Read(./.env)",
       "Read(./.env.*)"
