@@ -14,4 +14,5 @@ description: Commit the current work on a feature branch, push it and open a pul
    If a hook fails, fix the cause. Never use `--no-verify`.
 6. Run `git push -u origin <branch>`. Never push to `main` and never force-push.
 7. Run `gh pr create --base main --title "<commit subject>" --body "<what changed, why, and how it was verified>"`. Quote the `CHECK PASSED` line in the body.
+   For story work, end the body with `Closes #<n>`, where `<n>` is what `scripts/agent/github-sync.sh issue <id>` prints, so merging closes the story's issue.
 8. Report the pull request URL. CI runs `make check`, and branch protection on `main` requires it to pass before merge.

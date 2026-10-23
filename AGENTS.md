@@ -48,6 +48,8 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 - Touch only what the active story needs. Note unrelated problems in `PROGRESS.md` instead of fixing them.
 - `scripts/agent/feature.sh done <id>` marks the story `passing` only after `PROGRESS.md` mentions `<id>`, `make check` passes, and its own tests ran and passed.
 - `scripts/agent/feature.sh block <id> "<reason>"` when something outside the repo stops you.
+- `done` also refuses changes outside the story's `owns`. `scripts/agent/feature.sh scope <id>` lists them.
+- `start`, `done` and `block` update the story's GitHub issue and board card. `scripts/agent/github-sync.sh push` syncs the whole backlog. GitHub is a view: change scope in `feature_list.json`, never only on GitHub.
 - Where the harness is heading (GitHub sync, unattended runs): `docs/agents/harness.md`.
 - Small fixes and questions do not need an entry. The Definition of Done still applies.
 

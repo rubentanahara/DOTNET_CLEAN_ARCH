@@ -21,6 +21,13 @@ prefix_rule(
 )
 
 prefix_rule(
+    pattern = [["scripts/agent/github-sync.sh", "./scripts/agent/github-sync.sh"]],
+    decision = "allow",
+    justification = "github-sync.sh mirrors feature_list.json to GitHub issues and the project board with gh, which needs the network the sandbox blocks",
+    match = ["scripts/agent/github-sync.sh push F01", "scripts/agent/github-sync.sh issue F01"],
+)
+
+prefix_rule(
     pattern = ["git", "push", "origin", "main"],
     decision = "forbidden",
     justification = "main changes only through a reviewed pull request; push a feature branch and open a PR",
