@@ -8,10 +8,10 @@ LOGS := .agent
 SMOKE_URL := http://127.0.0.1:5098
 SMOKE_TIMEOUT_SECONDS := 30
 
-.PHONY: check setup build test lint format smoke hooks packages run clean
+.PHONY: check setup build test lint format smoke hooks skills packages run clean
 
-check: hooks packages build lint test smoke
-	@echo "CHECK PASSED: hooks, packages, build, format, tests, smoke"
+check: hooks skills packages build lint test smoke
+	@echo "CHECK PASSED: hooks, skills, packages, build, format, tests, smoke"
 
 setup:
 	dotnet tool restore
@@ -53,6 +53,11 @@ smoke: build
 hooks:
 	@jq -n -e --slurpfile claude .claude/settings.json --slurpfile codex .codex/hooks.json '$$claude[0].hooks != null and $$claude[0].hooks == $$codex[0].hooks' > /dev/null || { \
 		echo "CHECK FAILED at hooks. .codex/hooks.json differs from the hooks in .claude/settings.json. Edit .claude/settings.json, then run: jq '{hooks}' .claude/settings.json > .codex/hooks.json"; \
+		exit 1; }
+
+skills:
+	@diff -r .agents/skills .claude/skills > /dev/null || { \
+		echo "CHECK FAILED at skills. .claude/skills differs from .agents/skills. Edit .agents/skills, then run: rm -rf .claude/skills && cp -R .agents/skills .claude/skills"; \
 		exit 1; }
 
 packages:
