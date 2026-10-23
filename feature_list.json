@@ -165,6 +165,28 @@
           "test_filter": "FullyQualifiedName~HealthRequestFileTests",
           "state": "passing",
           "evidence": "2 tests passed on a00a121 plus uncommitted changes, 2026-10-23T14:53Z"
+        },
+        {
+          "id": "F08",
+          "name": "Swagger request file",
+          "title": "As a developer, I want a Swagger.http request file so that I can open the Swagger UI from my editor.",
+          "area": "backend",
+          "priority": "P2",
+          "estimate": "XS",
+          "acceptance_criteria": [
+            "Given the repo, When I open requests/Swagger/Swagger.http, Then it declares @host = http://localhost:5001 and holds a GET request for {{host}}/swagger/index.html.",
+            "Given the repo, When the tests run, Then a test fails if requests/Swagger/Swagger.http lacks that request."
+          ],
+          "depends_on": [],
+          "tasks": [],
+          "owns": [
+            "requests/Swagger/",
+            "tests/CleanTemplate.Api.IntegrationTests/SwaggerRequestFileTests.cs"
+          ],
+          "prd": "",
+          "test_filter": "FullyQualifiedName~SwaggerRequestFileTests",
+          "state": "not_started",
+          "evidence": ""
         }
       ]
     }
