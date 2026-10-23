@@ -90,6 +90,8 @@ load_repository() {
   repo_json=$(gh repo view --json nameWithOwner,owner,defaultBranchRef)
   REPO=$(jq -r .nameWithOwner <<< "$repo_json")
   OWNER=$(jq -r .owner.login <<< "$repo_json")
+  PROJECT_OWNER=$OWNER
+  [[ "$(gh api user --jq .login 2> /dev/null)" == "$OWNER" ]] && PROJECT_OWNER=@me
   local default_branch current_branch
   default_branch=$(jq -r .defaultBranchRef.name <<< "$repo_json")
   current_branch=${GITHUB_REF_NAME:-$(git branch --show-current)}
@@ -101,11 +103,11 @@ load_repository() {
 ensure_project() {
   PROJECT_NUMBER=$(find_project_number)
   if [[ -z "$PROJECT_NUMBER" ]]; then
-    PROJECT_NUMBER=$(gh project create --owner "$OWNER" --title "$PROJECT_TITLE" --format json | jq -r .number)
-    gh project link "$PROJECT_NUMBER" --owner "$OWNER" --repo "$REPO" > /dev/null
+    PROJECT_NUMBER=$(gh project create --owner "$PROJECT_OWNER" --title "$PROJECT_TITLE" --format json | jq -r .number)
+    gh project link "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --repo "$REPO" > /dev/null
     report "created project #$PROJECT_NUMBER '$PROJECT_TITLE' and linked it to $REPO"
   fi
-  PROJECT_ID=$(gh project view "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r .id)
+  PROJECT_ID=$(gh project view "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --format json | jq -r .id)
   load_fields
   ensure_status_options
   ensure_field Priority SINGLE_SELECT "$(jq -r '.priority_legend | keys | join(",")' "$FEATURES_FILE")"
@@ -117,25 +119,25 @@ ensure_project() {
 require_project() {
   PROJECT_NUMBER=$(find_project_number)
   [[ -n "$PROJECT_NUMBER" ]] || fail "No project '$PROJECT_TITLE' owned by $OWNER. Run scripts/agent/github-sync.sh push to create it."
-  PROJECT_ID=$(gh project view "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r .id)
+  PROJECT_ID=$(gh project view "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --format json | jq -r .id)
 }
 
 find_project_number() {
-  gh project list --owner "$OWNER" --format json --limit 200 \
+  gh project list --owner "$PROJECT_OWNER" --format json --limit 200 \
     | jq -r --arg title "$PROJECT_TITLE" '[.projects[] | select(.title == $title and (.closed | not)) | .number][0] // empty'
 }
 
 load_fields() {
-  FIELDS_JSON=$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json --limit 100 | jq '.fields')
+  FIELDS_JSON=$(gh project field-list "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --format json --limit 100 | jq '.fields')
 }
 
 ensure_field() {
   local name=$1 data_type=$2 options=$3
   [[ -n "$(jq -r --arg name "$name" '.[] | select(.name == $name) | .id' <<< "$FIELDS_JSON")" ]] && return 0
   if [[ "$data_type" == SINGLE_SELECT ]]; then
-    gh project field-create "$PROJECT_NUMBER" --owner "$OWNER" --name "$name" --data-type "$data_type" --single-select-options "$options" > /dev/null
+    gh project field-create "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --name "$name" --data-type "$data_type" --single-select-options "$options" > /dev/null
   else
-    gh project field-create "$PROJECT_NUMBER" --owner "$OWNER" --name "$name" --data-type "$data_type" > /dev/null
+    gh project field-create "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --name "$name" --data-type "$data_type" > /dev/null
   fi
   report "created board field $name"
   load_fields
@@ -372,7 +374,7 @@ reconcile_board() {
   for key in $keys; do
     number=$(issue_field "$key" number)
     [[ -n "$(jq -r --argjson n "$number" '.[] | select(.number == $n) | .id' <<< "$items")" ]] && continue
-    if output=$(gh project item-add "$PROJECT_NUMBER" --owner "$OWNER" --url "$(issue_field "$key" url)" 2>&1); then
+    if output=$(gh project item-add "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --url "$(issue_field "$key" url)" 2>&1); then
       report "added #$number to the board"
     elif [[ "$output" != *"already exists"* ]]; then
       fail "$output"
@@ -393,7 +395,7 @@ reconcile_board() {
 }
 
 board_items() {
-  gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --format json --limit 1000 \
+  gh project item-list "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --format json --limit 1000 \
     | jq --arg repo "$REPO" '[.items[] | select(.content.type == "Issue" and .content.repository == $repo) | . + {number: .content.number}]'
 }
 
