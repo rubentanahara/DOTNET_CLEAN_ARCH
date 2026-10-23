@@ -21,6 +21,7 @@
 4. For a new project: run `./rename.sh <Name>`, then replace the example features in `feature_list.json` with your own.
 
 ## Decisions
+- 2026-10-23: Added F06 and F07, two tiny independent stories (a `.http` request file each, plus a test that reads it) with disjoint `owns`, only to give `run.sh --parallel 2` a first wave of two. The `.http` files use `{{host}}` like `requests/Example/Example.http`.
 - 2026-10-23: `run.sh` sets a model per CLI: `claude-sonnet-5-5`, `gpt-5.6-terra`, `auto`, overridable with `--model` and `--checker-model`. Verified: `claude --model claude-sonnet-5-5` answers, `copilot --help` documents `auto`, `codex debug models` lists `gpt-5.6-terra`. The user wrote "astra gpt-5.6-terra"; no model named astra exists, so only `gpt-5.6-terra` is used.
 - 2026-10-21: `AGENTS.md` is the only instruction file. Claude Code, Codex and Copilot all read it natively. There is no `CLAUDE.md`: Claude Code falls back to `AGENTS.md` when none exists, and Copilot would load both.
 - 2026-10-21: `feature_list.json` changes only through `scripts/agent/feature.sh`, so a feature becomes `passing` only after its own tests actually ran. `dotnet test --filter` exits 0 when nothing matches, so the script counts the tests that passed.
