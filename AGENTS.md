@@ -13,7 +13,7 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 
 ## Commands
 - `make setup`: first run. Restores tools and packages and installs the git hooks.
-- `make check`: the only definition of green. Hook config, skill copy, harness script tests and unused package checks, build (warnings are errors), format check, all tests, API smoke test.
+- `make check`: the only definition of green. Hook config, skill copy, agent copy, harness script tests and unused package checks, build (warnings are errors), format check, all tests, API smoke test.
   It prints `CHECK PASSED`, or `CHECK FAILED at <step>` with the failing lines and the fix to apply.
 - `make format`: fixes formatting and line endings automatically.
 - `make run`: starts the API on http://localhost:5001 (Swagger at `/swagger`, health at `/health`).
@@ -68,6 +68,7 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 - Claude Code and Copilot CLI read this file and the session-start and stop hooks in `.claude/settings.json`. Claude Code also takes its permissions from it.
 - Copilot CLI also reads `.github/hooks/session-kickoff.json`, which submits a first prompt so the session-start hook runs at launch.
 - Skills live in `.agents/skills/<name>/SKILL.md`, which Codex and Copilot CLI read, and are copied to `.claude/skills/` for Claude Code. `make check` fails at `skills` when the copies differ. Skills: `prd` (requirements in `docs/prd/`), `backlog` (cut a PRD into stories), `feature`, `tdd` (one acceptance criterion at a time, test first), `verify` (independent read-only review, run by a fresh session or subagent), `ship`, `grilling` (stress-test a plan), `handoff` (summary for the next session, on the clipboard), `prompt-rewrite`. Invoke them with `/<name>` in Claude Code and Copilot CLI, and with `$<name>` in Codex.
+- Subagents live in `.claude/agents/<name>.md`, which Claude Code and Copilot CLI read. Codex reads only `.codex/agents/<name>.toml` and needs underscores in names, so `scripts/agent/sync-agents.sh` generates those copies; edit `.claude/agents`, then run it. `make check` fails at `agents` when the copies differ. Frontmatter is only `name`, `description` and `tools`: model names differ per CLI, and Codex has no per-agent tool list, so a read-only agent is read-only there only by its prompt. Agents: `architect`, `security-engineer`, `test-generator`, `refactoring-expert`, `tech-lead` (`security_engineer` and so on in Codex).
 - The hooks in `.codex/hooks.json` must match the hooks in `.claude/settings.json`; `make check` fails at `hooks` when they differ. The hook logic lives only in `scripts/agent/`.
 - Codex reads this file and `.codex/`: trust the project, then approve the session-start and stop hooks with `/hooks`, again after any change to `.codex/hooks.json`.
   Its sandbox blocks the local sockets `dotnet` needs, so `.codex/rules/dotnet.rules` lets `make`, `dotnet build/test/format` and `feature.sh` run outside it, and forbids pushing to `main` and force-pushing.

@@ -12,3 +12,13 @@ if ! echo "$commit_msg" | grep -qE "$pattern"; then
   echo "Got: $commit_msg"
   exit 1
 fi
+
+agent_attribution='^(co-authored-by:.*(claude|codex|copilot|anthropic\.com|openai\.com)|.*generated (with|by) \[(claude|codex|copilot))'
+
+message_body=$(sed '/^# -* >8 -*$/,$d' "$1" | grep -v '^#')
+
+if echo "$message_body" | grep -qiE "$agent_attribution"; then
+  echo "Commit message must not name an AI agent. Remove:"
+  echo "$message_body" | grep -iE "$agent_attribution"
+  exit 1
+fi
