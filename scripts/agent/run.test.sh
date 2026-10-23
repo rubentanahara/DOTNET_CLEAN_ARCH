@@ -31,6 +31,9 @@ ROOT=$sandbox
 expect "branch names are lowercase slugs" "feat/f05-create-tag-v2" "$(branch_name F05)"
 expect "session names keep the story name" "F05 · Create Tag (v2)!" "$(session_name F05)"
 expect "slugs stop at the length limit without a trailing dash" "feat/$(printf 'a%.0s' $(seq 40))" "feat/$(slug "$(printf 'a%.0s' $(seq 45))")"
+expect "claude defaults to sonnet 5.5" "claude-sonnet-5-5" "$(default_model claude)"
+expect "copilot defaults to auto" "auto" "$(default_model copilot)"
+expect "codex defaults to gpt-5.6-terra" "gpt-5.6-terra" "$(default_model codex)"
 expect "commit subjects start lowercase" "create Tag (v2)!" "$(lowercase_first "Create Tag (v2)!")"
 
 printf 'table\n\n**VERIFY: PASS**\n' > pass.md

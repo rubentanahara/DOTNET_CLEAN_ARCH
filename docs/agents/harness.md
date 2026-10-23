@@ -93,6 +93,8 @@ One case per CLI keeps the graph CLI-agnostic. Adding Cursor or Gemini is two mo
 | Codex | `codex exec --dangerously-bypass-approvals-and-sandbox` | `codex exec --sandbox read-only -o <file>` | none at launch; the prompt starts with the name |
 | Copilot CLI | `copilot -p --allow-all --no-ask-user`, `git commit` and `git push` denied | `copilot -p --deny-tool write` with only read-only `git` and `feature.sh show/scope` allowed | `-n` |
 
+Every node also takes a model: `claude --model`, `codex exec -m`, `copilot --model`. Defaults are in `run.sh`: `claude-sonnet-5-5`, `gpt-5.6-terra` (listed by `codex debug models`) and `auto`. `--model` overrides the implementer's and `--checker-model` the reviewer's.
+
 Writable nodes need each CLI's full-permission flag to run unattended. They run only inside a story worktree, the runner itself commits and pushes, and branch protection still rejects pushes to `main`. Codex cannot deny single commands in that mode, so for Codex the prompt is the only thing that keeps it from committing or pushing.
 
 ## 6. Roadmap

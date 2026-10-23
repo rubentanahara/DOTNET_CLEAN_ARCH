@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-readonly USAGE='Usage: scripts/agent/run.sh [--cli claude|codex|copilot] [--checker claude|codex|copilot] [--parallel N] [--merge] [--story <id>] [--dry-run]
+readonly USAGE='Usage: scripts/agent/run.sh [--cli claude|codex|copilot] [--checker claude|codex|copilot] [--model <m>] [--checker-model <m>] [--parallel N] [--merge] [--story <id>] [--dry-run]
 
 Runs the first wave of scripts/agent/feature.sh waves. Each story gets its own worktree and branch and goes through:
 implement (a session named "<id> · <name>"), make check, scope and test gate, an independent read-only review
@@ -9,11 +9,16 @@ implement (a session named "<id> · <name>"), make check, scope and test gate, a
 
   --cli       CLI that implements. Default: claude.
   --checker   CLI that reviews. Default: the same as --cli.
+  --model     model of the implementer. Default: claude-sonnet-5-5, auto (copilot) or gpt-5.6-terra (codex).
+  --checker-model  model of the reviewer. Default: the default of the checker CLI.
   --parallel  how many stories of a wave run at once, one tmux pane each. Default: 1.
   --merge     merge each pull request once CI is green, then run the next wave. Default: stop at open pull requests.
   --story     run only this story.
   --dry-run   print what would run, and start nothing.'
 readonly MAX_ATTEMPTS=3
+readonly CLAUDE_DEFAULT_MODEL=claude-sonnet-5-5
+readonly COPILOT_DEFAULT_MODEL=auto
+readonly CODEX_DEFAULT_MODEL=gpt-5.6-terra
 readonly WORKTREES_DIR=.worktrees
 readonly RUNS_DIR=.agent/runs
 readonly RUNNER_DIR=.agent/runner
@@ -44,11 +49,13 @@ main() {
 }
 
 parse_arguments() {
-  CLI=claude CHECKER="" PARALLEL=1 MERGE=false ONLY_STORY="" DRY_RUN=false
+  CLI=claude CHECKER="" MODEL="" CHECKER_MODEL="" PARALLEL=1 MERGE=false ONLY_STORY="" DRY_RUN=false
   while (( $# > 0 )); do
     case "$1" in
       --cli) CLI=${2:?$USAGE}; shift 2 ;;
       --checker) CHECKER=${2:?$USAGE}; shift 2 ;;
+      --model) MODEL=${2:?$USAGE}; shift 2 ;;
+      --checker-model) CHECKER_MODEL=${2:?$USAGE}; shift 2 ;;
       --parallel) PARALLEL=${2:?$USAGE}; shift 2 ;;
       --merge) MERGE=true; shift ;;
       --story) ONLY_STORY=${2:?$USAGE}; shift 2 ;;
@@ -57,6 +64,8 @@ parse_arguments() {
     esac
   done
   CHECKER=${CHECKER:-$CLI}
+  MODEL=${MODEL:-$(default_model "$CLI")}
+  CHECKER_MODEL=${CHECKER_MODEL:-$(default_model "$CHECKER")}
   local cli
   for cli in "$CLI" "$CHECKER"; do
     [[ " claude codex copilot " == *" $cli "* ]] || fail "Unknown CLI '$cli'. Use claude, codex or copilot."
@@ -116,7 +125,7 @@ waiting_summary() {
 
 print_plan() {
   local id
-  echo "Base: $BASE_BRANCH ($(git rev-parse --short HEAD)). Implementer: $CLI. Reviewer: $CHECKER, fresh read-only session. Parallel: $PARALLEL. Merge: $MERGE."
+  echo "Base: $BASE_BRANCH ($(git rev-parse --short HEAD)). Implementer: $CLI ($MODEL). Reviewer: $CHECKER ($CHECKER_MODEL), fresh read-only session. Parallel: $PARALLEL. Merge: $MERGE."
   echo "Wave:"
   for id in $1; do
     echo "  $(session_name "$id")  branch $(branch_name "$id")  worktree $WORKTREES_DIR/$id  tests $(story_field "$id" test_filter)"
@@ -155,7 +164,7 @@ run_in_panes() {
     tmux select-pane -t "$pane" -T "$(session_name "$id")"
     tmux set-option -p -t "$pane" allow-set-title off > /dev/null
     tmux select-layout -t "$window" tiled > /dev/null
-    tmux send-keys -t "$pane" "bash $0 --story $id --cli $CLI --checker $CHECKER; echo 'Pane done. Press Enter to close.'; read" Enter
+    tmux send-keys -t "$pane" "bash $0 --story $id --cli $CLI --checker $CHECKER --model $MODEL --checker-model $CHECKER_MODEL; echo 'Pane done. Press Enter to close.'; read" Enter
   done
   tmux kill-pane -t "$first_pane"
   tmux select-layout -t "$window" tiled > /dev/null
@@ -241,7 +250,7 @@ You may hand exploration or test drafting to subagents. If something outside the
   if [[ -n "$feedback" ]]; then
     prompt+=$'\n\n'"This is attempt $attempt of $MAX_ATTEMPTS. The previous attempt did not pass. Fix these findings first:"$'\n'"$feedback"
   fi
-  (cd "$dir" && run_session "$CLI" write "$(session_name "$id")" "$prompt" "$(story_log_dir "$id")/implement-$attempt.log")
+  (cd "$dir" && run_session "$CLI" "$MODEL" write "$(session_name "$id")" "$prompt" "$(story_log_dir "$id")/implement-$attempt.log")
 }
 
 gate_story() {
@@ -277,7 +286,7 @@ The change is git diff $(git -C "$dir" merge-base HEAD "$BASE_BRANCH") plus the 
 The runner already ran make check, which passed, and the story's tests. Their output is in $RUNNER_DIR/tests.log: read it instead of building or running the tests.
 Do not edit, create or delete any file. End with the VERIFY line."
   before=$(cd "$dir" && bash "$FINGERPRINT")
-  (cd "$dir" && run_session "$CHECKER" read "$id · review" "$prompt" "$out") >&2
+  (cd "$dir" && run_session "$CHECKER" "$CHECKER_MODEL" read "$id · review" "$prompt" "$out") >&2
   after=$(cd "$dir" && bash "$FINGERPRINT")
   if [[ "$before" != "$after" ]]; then
     echo "The reviewer changed files, so its review does not count. Undo any change it made."
@@ -356,7 +365,7 @@ resolve_conflicts() {
   [[ -d "$dir" ]] || git worktree add -q "$dir" "$branch" || return 1
   (cd "$dir" && git merge -q --ff-only "origin/$branch" 2> /dev/null)
   report "$id: resolving conflicts with $BASE_BRANCH ($CLI, session \"$id · merge $BASE_BRANCH\")"
-  (cd "$dir" && run_session "$CLI" write "$id · merge $BASE_BRANCH" "Session \"$id · merge $BASE_BRANCH\". Run git merge origin/$BASE_BRANCH in this worktree and resolve every conflict so both sides keep working. Run make check until it prints CHECK PASSED, then commit the merge. Do not push." "$(story_log_dir "$id")/resolve.log")
+  (cd "$dir" && run_session "$CLI" "$MODEL" write "$id · merge $BASE_BRANCH" "Session \"$id · merge $BASE_BRANCH\". Run git merge origin/$BASE_BRANCH in this worktree and resolve every conflict so both sides keep working. Run make check until it prints CHECK PASSED, then commit the merge. Do not push." "$(story_log_dir "$id")/resolve.log")
   (cd "$dir" && git merge-base --is-ancestor "origin/$BASE_BRANCH" HEAD && make check > /dev/null 2>&1 && git push -q origin "$branch") || {
     report "$id: conflicts are not resolved; see $(story_log_dir "$id")/resolve.log and the worktree $dir."
     return 1
@@ -364,24 +373,32 @@ resolve_conflicts() {
   git worktree remove "$dir" > /dev/null 2>&1 || true
 }
 
+default_model() {
+  case "$1" in
+    claude) echo "$CLAUDE_DEFAULT_MODEL" ;;
+    codex) echo "$CODEX_DEFAULT_MODEL" ;;
+    copilot) echo "$COPILOT_DEFAULT_MODEL" ;;
+  esac
+}
+
 run_session() {
-  local cli=$1 mode=$2 name=$3 prompt=$4 out=$5
+  local cli=$1 model=$2 mode=$3 name=$4 prompt=$5 out=$6
   case "$cli:$mode" in
     claude:write)
-      claude -p "$prompt" -n "$name" --permission-mode bypassPermissions --disallowedTools "Bash(git push *)" "Bash(git commit *)" < /dev/null 2>&1 | tee "$out" ;;
+      claude -p "$prompt" --model "$model" -n "$name" --permission-mode bypassPermissions --disallowedTools "Bash(git push *)" "Bash(git commit *)" < /dev/null 2>&1 | tee "$out" ;;
     claude:read)
-      claude -p "$prompt" -n "$name" --disallowedTools Edit Write NotebookEdit "Bash(make format)" "Bash(dotnet format *)" \
+      claude -p "$prompt" --model "$model" -n "$name" --disallowedTools Edit Write NotebookEdit "Bash(make format)" "Bash(dotnet format *)" \
         "Bash(scripts/agent/feature.sh start *)" "Bash(scripts/agent/feature.sh done *)" "Bash(scripts/agent/feature.sh block *)" \
         "Bash(scripts/agent/feature.sh add *)" < /dev/null 2>&1 | tee "$out" ;;
     codex:write)
-      codex exec --dangerously-bypass-approvals-and-sandbox "$prompt" < /dev/null 2>&1 | tee "$out" ;;
+      codex exec -m "$model" --dangerously-bypass-approvals-and-sandbox "$prompt" < /dev/null 2>&1 | tee "$out" ;;
     codex:read)
-      codex exec --sandbox read-only -o "$out" "$prompt" < /dev/null > "$out.log" 2>&1
+      codex exec -m "$model" --sandbox read-only -o "$out" "$prompt" < /dev/null > "$out.log" 2>&1
       tail -n 20 "$out" ;;
     copilot:write)
-      copilot -p "$prompt" -n "$name" --allow-all --no-ask-user --deny-tool 'shell(git push)' --deny-tool 'shell(git commit)' 2>&1 | tee "$out" ;;
+      copilot -p "$prompt" --model "$model" -n "$name" --allow-all --no-ask-user --deny-tool 'shell(git push)' --deny-tool 'shell(git commit)' 2>&1 | tee "$out" ;;
     copilot:read)
-      copilot -p "$prompt" -n "$name" -s --no-ask-user --deny-tool write \
+      copilot -p "$prompt" --model "$model" -n "$name" -s --no-ask-user --deny-tool write \
         --allow-tool 'shell(git diff:*)' --allow-tool 'shell(git status:*)' --allow-tool 'shell(git log:*)' --allow-tool 'shell(git show:*)' \
         --allow-tool 'shell(scripts/agent/feature.sh show:*)' --allow-tool 'shell(scripts/agent/feature.sh scope:*)' 2>&1 | tee "$out" ;;
   esac
