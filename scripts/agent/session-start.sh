@@ -7,7 +7,9 @@ readonly PROGRESS_MAX_LINES=60
 readonly LOG_FILE=.agent/session-start.log
 readonly FINGERPRINT_SCRIPT=scripts/agent/tree-fingerprint.sh
 
-hook_input=$([[ -t 0 ]] || cat)
+readonly HOOK_INPUT_TIMEOUT_SECONDS=2
+hook_input=""
+[[ -t 0 ]] || IFS= read -r -d '' -t "$HOOK_INPUT_TIMEOUT_SECONDS" hook_input || true
 session_id=$(grep -oE '"session_?[iI]d" *: *"[^"]+"' <<< "$hook_input" | head -n 1 | sed -E 's/.*"([^"]+)"$/\1/' | tr -cd 'A-Za-z0-9_-')
 readonly BASELINE_FILE=.agent/session-baseline${session_id:+-$session_id}
 readonly BASELINE_RETENTION_DAYS=7
