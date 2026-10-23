@@ -1,4 +1,4 @@
-@host = http://localhost:5519
+@host = http://localhost:5001
 
 GET {{host}}/test
 

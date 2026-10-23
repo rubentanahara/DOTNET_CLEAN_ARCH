@@ -483,3 +483,4 @@ $RECYCLE.BIN/
 
 artifacts/
 .agent/
+copilot-debug-logs-*.tgz
