@@ -24,7 +24,7 @@ Turn requirements into stories the harness can schedule, run in parallel safely 
 | `acceptance_criteria` | Given/When/Then lines a test can check over HTTP: route, status code, response fields. One line for each error the story returns. |
 | `prd` | `docs/prd/<feature>.md#FR-<n>`, the requirement the story implements. |
 | `depends_on` | Stories whose code this one needs: the entity it extends, the endpoint it calls, the data it reads. Test: could this story's tests pass with only its dependencies merged? If not, a dependency is missing. |
-| `owns` | The exact files the story creates or changes, from the slice layout. Name the module, repository interface and entity files explicitly when several stories extend them, so those stories land in different waves. Use a directory (ending in `/`) only for a feature folder no other story touches. Leave out the files in the top-level `shared` list. |
+| `owns` | The exact files the story creates or changes, from the slice layout, including its `tests/` class and its `requests/<Feature>/<Feature>.http` file. Name the module, repository interface and entity files explicitly when several stories extend them, so those stories land in different waves. Use a directory (ending in `/`) only for a feature folder no other story touches. Leave out the files in the top-level `shared` list. |
 | `test_filter` | `FullyQualifiedName~<StoryTestClass>`, one test class per story, so `feature.sh done` runs exactly its tests. |
 | `priority`, `estimate`, `area` | P0 on the critical path to P3 parked; XS to XL; backend, security, architecture or another single word. |
 
