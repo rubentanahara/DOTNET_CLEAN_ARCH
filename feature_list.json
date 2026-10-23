@@ -121,6 +121,50 @@
           "test_filter": "FullyQualifiedName~VersionEndpointTests",
           "state": "passing",
           "evidence": "2 tests passed on 7594026 plus uncommitted changes, 2026-10-23T14:22Z"
+        },
+        {
+          "id": "F06",
+          "name": "Version request file",
+          "title": "As a developer, I want a Version.http request file so that I can call GET /version from my editor.",
+          "area": "",
+          "priority": "P1",
+          "estimate": "",
+          "acceptance_criteria": [
+            "Given the repo, When I open requests/Version/Version.http, Then it declares @host = http://localhost:5001 and holds a GET request for {{host}}/version.",
+            "Given the repo, When the tests run, Then a test fails if requests/Version/Version.http lacks that request."
+          ],
+          "depends_on": [],
+          "tasks": [],
+          "owns": [
+            "requests/Version/",
+            "tests/CleanTemplate.Api.IntegrationTests/VersionRequestFileTests.cs"
+          ],
+          "prd": "",
+          "test_filter": "FullyQualifiedName~VersionRequestFileTests",
+          "state": "not_started",
+          "evidence": ""
+        },
+        {
+          "id": "F07",
+          "name": "Health request file",
+          "title": "As a developer, I want a Health.http request file so that I can call GET /health from my editor.",
+          "area": "",
+          "priority": "P1",
+          "estimate": "",
+          "acceptance_criteria": [
+            "Given the repo, When I open requests/Health/Health.http, Then it declares @host = http://localhost:5001 and holds a GET request for {{host}}/health.",
+            "Given the repo, When the tests run, Then a test fails if requests/Health/Health.http lacks that request."
+          ],
+          "depends_on": [],
+          "tasks": [],
+          "owns": [
+            "requests/Health/",
+            "tests/CleanTemplate.Api.IntegrationTests/HealthRequestFileTests.cs"
+          ],
+          "prd": "",
+          "test_filter": "FullyQualifiedName~HealthRequestFileTests",
+          "state": "not_started",
+          "evidence": ""
         }
       ]
     }
