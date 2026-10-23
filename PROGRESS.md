@@ -1,11 +1,18 @@
 # Progress
 
 ## Current state
-- `make check` passes: hook config, unused packages, build, format, all tests, API smoke test.
+- `make check` passes: hook config, skill copy, unused packages, build, format, all tests, API smoke test.
 - Every feature in `feature_list.json` is `passing`. They describe the example code the template ships with.
 
 ## In progress
 - Nothing.
+
+## Known issues
+- None.
+
+## Next steps
+1. Add a `bugfix` skill (failing test first, then the fix) if the `feature` and `ship` skills hold up in real sessions.
+2. For a new project: run `./rename.sh <Name>`, then replace the example features in `feature_list.json` with your own.
 
 ## Decisions
 - 2026-10-21: `AGENTS.md` is the only instruction file. Claude Code, Codex and Copilot all read it natively. There is no `CLAUDE.md`: Claude Code falls back to `AGENTS.md` when none exists, and Copilot would load both.
@@ -21,11 +28,7 @@
 - 2026-10-22: `make packages` fails when `Directory.Packages.props` pins a version that no project references. With transitive pinning off, NuGet ignores such entries, so they go stale without any warning. Removed `Microsoft.Extensions.Configuration.Binder`, `Microsoft.Extensions.Configuration.Abstractions` and `Microsoft.OpenApi`, which still arrive transitively at the versions the build resolved before.
 - 2026-10-22: `stop-gate.sh` escapes its JSON by hand instead of using `jq`. Without `jq`, `make check` fails, and a gate built on `jq` would print nothing and let the agent stop, the one case it must block.
 - 2026-10-22: The `.http` files under `requests/` target http://localhost:5001, the port `make run` and the `http` launch profile serve.
-
 - 2026-10-22: Agents may push feature branches and open pull requests when asked; `main` changes only through a PR that passes CI. `.claude/settings.json` denies and `.codex/rules/dotnet.rules` forbids `git push origin main` and force-pushes. These are prefix matches, so a bare `git push` while on `main` would get through; GitHub branch protection on `main` closes that gap for every tool. It requires a pull request, the `check` job passing on a branch that is up to date with `main`, and applies to admins; force-pushes and deletion are blocked. A direct push to `main` is rejected with `GH006: Protected branch update failed`. Rejected: keeping the full push ban, which left every change waiting for a human to push.
-
-## Known issues
-- None.
-
-## Next steps
-1. For a new project: run `./rename.sh <Name>`, then replace the example features in `feature_list.json` with your own.
+- 2026-10-22: Agents used to update `PROGRESS.md` only because `AGENTS.md` told them to, and nothing checked it. Now `session-start.sh` writes `.agent/session-baseline`: a working-tree fingerprint from `scripts/agent/tree-fingerprint.sh` and the hash of `PROGRESS.md`. `stop-gate.sh` blocks a stop when the fingerprint changed since then but `PROGRESS.md` did not. When there is no baseline, it compares `PROGRESS.md` with `HEAD`. A question asked on a tree that someone else left dirty does not trip the gate, because the fingerprint still matches. Limits: the gate still skips clean trees, so changes committed without `PROGRESS.md` get through. Sessions running at the same time in one checkout share the baseline file, and the latest one wins. `feature.sh done <id>` refuses until `PROGRESS.md` mentions `<id>` as a whole word; a mention already in "In progress" or "Next steps" also satisfies it. `session-start.sh` injects only the first 60 lines, so "Known issues" and "Next steps" now sit above "Decisions", and the excerpt says when lines were cut. Rejected: having `feature.sh` write to `PROGRESS.md`, because a script cannot say why something changed. Rejected: injecting the whole file, which would add every past decision to the context of every session.
+- 2026-10-22: SessionStart matcher in `.claude/settings.json` and `.codex/hooks.json` is now `startup|resume|clear`. Before, `/clear` skipped the hook in Claude Code and Codex, so no PROGRESS.md, open features or `make check` context was injected; Copilot has no matcher and already ran it. Not verified: that Codex reports `clear` as a SessionStart source. Next: run `/clear` in Codex and confirm the hook fires; if not, Codex needs a different matcher value.
+- 2026-10-22: Project skills `feature` (one backlog feature end to end) and `ship` (branch, Conventional Commit, push, `gh pr create`) live in `.agents/skills/` and are copied to `.claude/skills/`. Checked with each CLI's own listing and invocation: Claude Code 2.1.309 reads only `.claude/skills` (anthropics/claude-code#31005 for `.agents/skills` is still open), Codex 0.163.0 reads only `.agents/skills`, and Copilot CLI 1.0.103 reads both plus `.github/skills`, keeping one copy per name and preferring `.agents/skills`. No directory serves all three, so `make check` gains a `skills` step that fails when the copies differ, the same way `hooks` guards `.codex/hooks.json`. Frontmatter is only `name` and `description`, and the bodies do not use `$ARGUMENTS`, because only Claude Code expands it. `feature` points to `docs/agents/add-feature.md` instead of copying it. Rejected: a symlink, for the Windows reason given for hooks. Rejected: `.claude/commands`, which Codex does not read. Known limit: Claude Code drops skill descriptions once the listing passes its character budget, so with many personal skills `feature` or `ship` can appear without a description. Explicit `/feature` still works, and `SLASH_COMMAND_TOOL_CHAR_BUDGET` raises the budget.

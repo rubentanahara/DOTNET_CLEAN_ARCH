@@ -5,6 +5,8 @@ readonly PROGRESS_FILE=PROGRESS.md
 readonly FEATURES_FILE=feature_list.json
 readonly PROGRESS_MAX_LINES=60
 readonly LOG_FILE=.agent/session-start.log
+readonly BASELINE_FILE=.agent/session-baseline
+readonly FINGERPRINT_SCRIPT=scripts/agent/tree-fingerprint.sh
 
 cd "$(git rev-parse --show-toplevel)" || exit 0
 
@@ -13,7 +15,17 @@ open_features() {
 }
 
 progress_excerpt() {
-  head -n "$PROGRESS_MAX_LINES" "$PROGRESS_FILE" 2> /dev/null
+  awk -v max="$PROGRESS_MAX_LINES" -v file="$PROGRESS_FILE" '
+    NR <= max
+    END { if (NR > max) print "[Only the first " max " of " NR " lines are shown. Read " file " for the rest.]" }
+  ' "$PROGRESS_FILE" 2> /dev/null
+}
+
+record_session_baseline() {
+  {
+    bash "$FINGERPRINT_SCRIPT"
+    git hash-object "$PROGRESS_FILE" 2> /dev/null
+  } > "$BASELINE_FILE"
 }
 
 calling_cli() {
@@ -50,6 +62,7 @@ context=$(
 open_count=$(open_features | grep -c .)
 notice="session-start hook ran in $cli: loaded PROGRESS.md and $open_count open feature(s). make check: $check_result"
 mkdir -p "$(dirname "$LOG_FILE")"
+record_session_baseline
 echo "$(date '+%Y-%m-%d %H:%M:%S') $notice" >> "$LOG_FILE"
 
 jq -n --arg context "$context" --arg notice "$notice" --arg cli "$cli" '{

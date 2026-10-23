@@ -7,6 +7,9 @@ readonly LOGS=.agent
 readonly ATTEMPTS_FILE=$LOGS/stop-gate-attempts
 readonly PASSED_FILE=$LOGS/stop-gate-passed
 readonly GAVE_UP_FILE=$LOGS/stop-gate-gave-up
+readonly BASELINE_FILE=$LOGS/session-baseline
+readonly PROGRESS_FILE=PROGRESS.md
+readonly FINGERPRINT_SCRIPT=scripts/agent/tree-fingerprint.sh
 
 json_string() {
   local text=$1
@@ -23,12 +26,13 @@ block_stop() {
   exit 0
 }
 
-working_tree_fingerprint() {
-  {
-    git rev-parse HEAD 2> /dev/null
-    git diff HEAD --binary 2> /dev/null
-    git ls-files --others --exclude-standard | git hash-object --stdin-paths
-  } | git hash-object --stdin
+session_changes_missing_from_progress() {
+  local fingerprint=$1 baseline_fingerprint="" baseline_progress
+  baseline_progress=$(git rev-parse -q --verify "HEAD:$PROGRESS_FILE")
+  if [[ -f "$BASELINE_FILE" ]]; then
+    { read -r baseline_fingerprint; read -r baseline_progress; } < "$BASELINE_FILE"
+  fi
+  [[ "$fingerprint" != "$baseline_fingerprint" && "$(git hash-object "$PROGRESS_FILE" 2> /dev/null)" == "$baseline_progress" ]]
 }
 
 recorded() {
@@ -47,7 +51,8 @@ if [[ -z "$(git status --porcelain)" ]]; then
   exit 0
 fi
 
-fingerprint=$(working_tree_fingerprint)
+fingerprint=$(bash "$FINGERPRINT_SCRIPT")
+session_changes_missing_from_progress "$fingerprint" && block_stop "Not done: files changed during this session but $PROGRESS_FILE did not. Add what changed, why, and what comes next to it, then finish."
 recorded "$PASSED_FILE" "$fingerprint" && exit 0
 recorded "$GAVE_UP_FILE" "$fingerprint" && exit 0
 
