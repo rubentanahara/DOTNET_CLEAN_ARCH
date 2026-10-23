@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "prompt",
+        "prompt": "Do not use tools. From your session context, reply with two lines: the last line of the make check section, and the open features (or None). Then wait for my task."
+      }
+    ]
+  }
+}

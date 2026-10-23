@@ -13,7 +13,7 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 
 ## Commands
 - `make setup`: first run. Restores tools and packages and installs the git hooks.
-- `make check`: the only definition of green. Build (warnings are errors), format check, all tests, API smoke test.
+- `make check`: the only definition of green. Hook config check, build (warnings are errors), format check, all tests, API smoke test.
   It prints `CHECK PASSED`, or `CHECK FAILED at <step>` with the failing lines and the fix to apply.
 - `make format`: fixes formatting and line endings automatically.
 - `make run`: starts the API on http://localhost:5001 (Swagger at `/swagger`, health at `/health`).
@@ -62,8 +62,10 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 - End: update `PROGRESS.md` (state, decisions with their reasons, next steps), run `make check`, and leave no stray files.
 
 ## Harness wiring
-- Claude Code and Copilot CLI read this file and the stop hook in `.claude/settings.json`. Claude Code also takes its permissions from it.
-- Codex reads this file and `.codex/`: trust the project, then approve the stop hook once with `/hooks`.
+- Claude Code and Copilot CLI read this file and the session-start and stop hooks in `.claude/settings.json`. Claude Code also takes its permissions from it.
+- Copilot CLI also reads `.github/hooks/session-kickoff.json`, which submits a first prompt so the session-start hook runs at launch.
+- The hooks in `.codex/hooks.json` must match the hooks in `.claude/settings.json`; `make check` fails at `hooks` when they differ. The hook logic lives only in `scripts/agent/`.
+- Codex reads this file and `.codex/`: trust the project, then approve the session-start and stop hooks with `/hooks`, again after any change to `.codex/hooks.json`.
   Its sandbox blocks the local sockets `dotnet` needs, so `.codex/rules/dotnet.rules` lets `make`, `dotnet build/test/format` and `feature.sh` run outside it, and forbids `git push`.
 - CI runs `make check` on every pull request (`.github/workflows/ci.yml`).
 - The Copilot cloud agent prepares its environment with `.github/workflows/copilot-setup-steps.yml`.

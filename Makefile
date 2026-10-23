@@ -8,10 +8,10 @@ LOGS := .agent
 SMOKE_URL := http://127.0.0.1:5098
 SMOKE_TIMEOUT_SECONDS := 30
 
-.PHONY: check setup build test lint format smoke run clean
+.PHONY: check setup build test lint format smoke hooks run clean
 
-check: build lint test smoke
-	@echo "CHECK PASSED: build, format, tests, smoke"
+check: hooks build lint test smoke
+	@echo "CHECK PASSED: hooks, build, format, tests, smoke"
 
 setup:
 	dotnet tool restore
@@ -49,6 +49,11 @@ smoke: build
 	kill $$pid 2>/dev/null; tail -20 $(LOGS)/smoke.log; \
 	echo "CHECK FAILED at smoke. The API did not answer $(SMOKE_URL)/health. Startup output above, full log in $(LOGS)/smoke.log."; \
 	exit 1
+
+hooks:
+	@jq -n -e --slurpfile claude .claude/settings.json --slurpfile codex .codex/hooks.json '$$claude[0].hooks != null and $$claude[0].hooks == $$codex[0].hooks' > /dev/null || { \
+		echo "CHECK FAILED at hooks. .codex/hooks.json differs from the hooks in .claude/settings.json. Edit .claude/settings.json, then run: jq '{hooks}' .claude/settings.json > .codex/hooks.json"; \
+		exit 1; }
 
 format:
 	dotnet format $(SOLUTION)
