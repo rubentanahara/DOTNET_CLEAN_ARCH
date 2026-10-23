@@ -485,3 +485,4 @@ artifacts/
 .agent/
 copilot-debug-logs-*.tgz
 .worktrees/
+.codegraph/
