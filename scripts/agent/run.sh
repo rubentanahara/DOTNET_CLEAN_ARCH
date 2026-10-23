@@ -7,7 +7,7 @@ Runs the first wave of scripts/agent/feature.sh waves. Each story gets its own w
 implement (a session named "<id> · <name>"), make check, scope and test gate, an independent read-only review
 (the verify skill, in a fresh session), feature.sh done, then a commit, a push and a pull request.
 
-  --cli       CLI that implements. Default: claude.
+  --cli       CLI that implements. Default: copilot.
   --checker   CLI that reviews. Default: the same as --cli.
   --model     model of the implementer. Default: claude-sonnet-5-5, auto (copilot) or gpt-5.6-terra (codex).
   --checker-model  model of the reviewer. Default: the default of the checker CLI.
@@ -50,7 +50,7 @@ main() {
 }
 
 parse_arguments() {
-  CLI=claude CHECKER="" MODEL="" CHECKER_MODEL="" PARALLEL=1 MERGE=true ONLY_STORY="" DRY_RUN=false
+  CLI=copilot CHECKER="" MODEL="" CHECKER_MODEL="" PARALLEL=1 MERGE=true ONLY_STORY="" DRY_RUN=false
   while (( $# > 0 )); do
     case "$1" in
       --cli) CLI=${2:?$USAGE}; shift 2 ;;
