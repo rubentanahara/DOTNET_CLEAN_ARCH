@@ -70,6 +70,6 @@ For a new project made with `make rename`, the repo and the board are new, so on
 
 In a repo whose backlog is already on GitHub, the old issues must go too: the sync finds issues by the id in their title, so a new F01 would take over the old `F01 · …` issue.
 1. On a branch, run `scripts/agent/feature.sh reset`.
-2. Run `scripts/agent/github-sync.sh reset` to list what the sync owns: every issue titled `<id> · …`, every story-form issue, and the project.
+2. Run `scripts/agent/github-sync.sh reset` to list what the sync owns: every issue carrying its `<!-- harness-sync sha=… -->` marker, every issue labelled `story` (the story form), and the project.
 3. Run `scripts/agent/github-sync.sh reset --yes` yourself in a terminal and type the repo name. It deletes those issues and the project for good; GitHub cannot restore them. It refuses without a terminal, so an agent cannot run it.
 4. Open the pull request. After the merge, the sync creates an empty project.

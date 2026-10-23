@@ -722,8 +722,8 @@ confirm_reset() {
 
 load_reset_targets() {
   load_repository
-  RESET_ISSUES=$(gh issue list --repo "$REPO" --state all --limit "$ISSUE_LIST_LIMIT" --json number,title,labels \
-    | jq -r '.[] | select((.title | test("^[^ ]+ · ")) or ([.labels[].name] | index("story"))) | "\(.number)\t\(.title)"')
+  RESET_ISSUES=$(gh issue list --repo "$REPO" --state all --limit "$ISSUE_LIST_LIMIT" --json number,title,body,labels \
+    | jq -r '.[] | select((.body | contains("<!-- harness-sync sha=")) or ([.labels[].name] | index("story"))) | "\(.number)\t\(.title)"')
   PROJECT_NUMBER=$(find_project_number)
 }
 

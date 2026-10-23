@@ -89,8 +89,10 @@ gh() {
   case "$1 $2" in
     "repo view") echo '{"nameWithOwner":"me/repo","owner":{"login":"me"},"defaultBranchRef":{"name":"main"}}' ;;
     "api user") echo me ;;
-    "issue list") echo '[{"number":7,"title":"E1 · Epic","labels":[]},{"number":8,"title":"F01 · First","labels":[{"name":"story"}]},
-      {"number":30,"title":"Story: proposed on the form","labels":[{"name":"story"}]},{"number":40,"title":"Crash on startup","labels":[{"name":"bug"}]}]' ;;
+    "issue list") echo '[{"number":7,"title":"E1 · Epic","body":"x\n<!-- harness-sync sha=ab -->","labels":[]},
+      {"number":8,"title":"F01 · First","body":"y\n<!-- harness-sync sha=cd -->","labels":[{"name":"story"}]},
+      {"number":30,"title":"Story: proposed on the form","body":"","labels":[{"name":"story"}]},
+      {"number":40,"title":"Bug · crash on startup","body":"written by a person","labels":[{"name":"bug"}]}]' ;;
     "project list") echo '{"projects":[{"number":14,"title":"Test","closed":false},{"number":3,"title":"Other","closed":false}]}' ;;
   esac
 }
