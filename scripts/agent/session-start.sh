@@ -5,8 +5,12 @@ readonly PROGRESS_FILE=PROGRESS.md
 readonly FEATURES_FILE=feature_list.json
 readonly PROGRESS_MAX_LINES=60
 readonly LOG_FILE=.agent/session-start.log
-readonly BASELINE_FILE=.agent/session-baseline
 readonly FINGERPRINT_SCRIPT=scripts/agent/tree-fingerprint.sh
+
+hook_input=$([[ -t 0 ]] || cat)
+session_id=$(grep -oE '"session_?[iI]d" *: *"[^"]+"' <<< "$hook_input" | head -n 1 | sed -E 's/.*"([^"]+)"$/\1/' | tr -cd 'A-Za-z0-9_-')
+readonly BASELINE_FILE=.agent/session-baseline${session_id:+-$session_id}
+readonly BASELINE_RETENTION_DAYS=7
 
 cd "$(git rev-parse --show-toplevel)" || exit 0
 
@@ -22,6 +26,7 @@ progress_excerpt() {
 }
 
 record_session_baseline() {
+  find .agent -name 'session-baseline-*' -mtime +"$BASELINE_RETENTION_DAYS" -delete 2> /dev/null
   {
     bash "$FINGERPRINT_SCRIPT"
     git hash-object "$PROGRESS_FILE" 2> /dev/null

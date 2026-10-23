@@ -4,10 +4,8 @@ set -uo pipefail
 readonly MAX_ATTEMPTS=3
 readonly FAILURE_LINES=40
 readonly LOGS=.agent
-readonly ATTEMPTS_FILE=$LOGS/stop-gate-attempts
 readonly PASSED_FILE=$LOGS/stop-gate-passed
 readonly GAVE_UP_FILE=$LOGS/stop-gate-gave-up
-readonly BASELINE_FILE=$LOGS/session-baseline
 readonly PROGRESS_FILE=PROGRESS.md
 readonly FINGERPRINT_SCRIPT=scripts/agent/tree-fingerprint.sh
 
@@ -24,6 +22,17 @@ json_string() {
 block_stop() {
   printf '{"decision":"block","reason":%s}\n' "$(json_string "$1")"
   exit 0
+}
+
+session_id_from_hook_input() {
+  grep -oE '"session_?[iI]d" *: *"[^"]+"' | head -n 1 | sed -E 's/.*"([^"]+)"$/\1/' | tr -cd 'A-Za-z0-9_-'
+}
+
+next_attempt() {
+  local attempts
+  attempts=$(( $(cat "$ATTEMPTS_FILE" 2> /dev/null || echo 0) + 1 ))
+  echo "$attempts" > "$ATTEMPTS_FILE"
+  echo "$attempts"
 }
 
 session_changes_missing_from_progress() {
@@ -43,6 +52,12 @@ failure_excerpt() {
   grep -v '^make: \*\*\*' "$LOGS/check.log" | tail -n "$FAILURE_LINES" | tr -d '\000-\010\013\014\016-\037'
 }
 
+hook_input=$([[ -t 0 ]] || cat)
+session_id=$(session_id_from_hook_input <<< "$hook_input")
+readonly BASELINE_FILE=$LOGS/session-baseline${session_id:+-$session_id}
+readonly ATTEMPTS_FILE=$LOGS/stop-gate-attempts${session_id:+-$session_id}
+readonly PROGRESS_GAVE_UP_FILE=$LOGS/progress-gate-gave-up${session_id:+-$session_id}
+
 cd "$(git rev-parse --show-toplevel)" || exit 0
 mkdir -p "$LOGS"
 
@@ -52,7 +67,15 @@ if [[ -z "$(git status --porcelain)" ]]; then
 fi
 
 fingerprint=$(bash "$FINGERPRINT_SCRIPT")
-session_changes_missing_from_progress "$fingerprint" && block_stop "Not done: files changed during this session but $PROGRESS_FILE did not. Add what changed, why, and what comes next to it, then finish."
+if ! recorded "$PROGRESS_GAVE_UP_FILE" "$fingerprint" && session_changes_missing_from_progress "$fingerprint"; then
+  attempts=$(next_attempt)
+  if (( attempts > MAX_ATTEMPTS )); then
+    rm -f "$ATTEMPTS_FILE"
+    echo "$fingerprint" > "$PROGRESS_GAVE_UP_FILE"
+    block_stop "$PROGRESS_FILE is still unchanged after $MAX_ATTEMPTS attempts. If this session changed files, add what changed, why, and what comes next to $PROGRESS_FILE. If it changed nothing, another session did: say so and stop."
+  fi
+  block_stop "Not done: files changed during this session but $PROGRESS_FILE did not (attempt $attempts of $MAX_ATTEMPTS). Add what changed, why, and what comes next to it, then finish."
+fi
 recorded "$PASSED_FILE" "$fingerprint" && exit 0
 recorded "$GAVE_UP_FILE" "$fingerprint" && exit 0
 
@@ -62,8 +85,7 @@ if make check > "$LOGS/check.log" 2>&1; then
   exit 0
 fi
 
-attempts=$(( $(cat "$ATTEMPTS_FILE" 2> /dev/null || echo 0) + 1 ))
-echo "$attempts" > "$ATTEMPTS_FILE"
+attempts=$(next_attempt)
 
 if (( attempts > MAX_ATTEMPTS )); then
   rm -f "$ATTEMPTS_FILE"
