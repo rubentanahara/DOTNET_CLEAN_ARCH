@@ -6,6 +6,7 @@
 - The backlog is mirrored to GitHub project #14 "CleanTemplate": issue #7 for `EPIC-TEMPLATE`, #8 to #11 for F01 to F04. They show In Review until this branch reaches `main`, where the next push closes them as Done.
 
 ## In progress
+- F08 (Swagger request file), branch `feat/f08-swagger-request-file`: built, `make check` passes. Added `requests/Swagger/Swagger.http` (`@host = http://localhost:5001`, `GET {{host}}/swagger/index.html`) and `tests/CleanTemplate.Api.IntegrationTests/SwaggerRequestFileTests.cs` (same walk-up pattern as `HealthRequestFileTests`; both tests failed before the file existed). Next: runner review, `feature.sh done F08`, pull request.
 - F07 (Health request file), branch `feat/f07-health-request-file`: built, `make check` passes. Added `requests/Health/Health.http` (`@host = http://localhost:5001`, `GET {{host}}/health`) and `tests/CleanTemplate.Api.IntegrationTests/HealthRequestFileTests.cs`, which walks up from the test bin folder to find the file and asserts both lines (failed before the file existed). Next: runner review, `feature.sh done F07`, pull request.
 - F05 (Version endpoint), branch `feat/f05-version-endpoint`: built, `make check` passes. Waiting for the runner's independent review, `feature.sh done F05`, commit and pull request.
   - `GET /version` returns `{"version": "<informational version of CleanTemplate.Api>"}` as `application/json`, with no credentials.
