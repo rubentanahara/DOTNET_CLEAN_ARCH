@@ -99,6 +99,6 @@ Unattended writable nodes need each CLI's full-permission flag. They run only in
 2. **Repo to GitHub (built):** `github-sync.sh push`, pushed on every state change, three-way body check, `Closes #n` from the `ship` skill.
 3. **Parallel safety (built):** `owns`, `shared`, the file-overlap check in `waves`, the scope check in `done`.
 4. **GitHub to repo (planned):** the Action on push to `main`, the `issues` Action with sync pull requests, the card watcher, `feature.sh unblock`. Needs `BACKLOG_SYNC_TOKEN` and repository auto-merge.
-5. **Skills:** `tdd` and `verify` (built); `prd` and `backlog` (planned).
+5. **Skills (built):** `tdd`, `verify`, `prd`, `backlog`.
 6. **Runner (planned):** the story graph, sequential then parallel, `--merge` off by default, the three CLI adapters.
 7. **Release and deploy (planned):** release-please, an image on GHCR, staging on every merge, production behind an approval. Blocked on a deploy target and a real database: today's in-memory SQLite and `DROP TABLE` at startup lose all data on restart.

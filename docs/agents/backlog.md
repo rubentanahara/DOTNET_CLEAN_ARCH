@@ -30,6 +30,7 @@ Change it only through `scripts/agent/feature.sh`. The script owns `state` and `
 - A story inherits the sprint of its epic unless it sets its own. `"sprint": null` parks it: it is never scheduled.
 - `name` is short. It becomes the session name, the branch name and the GitHub issue title `F05 · Create tag`.
 - `acceptance_criteria` are Given/When/Then lines a test can check. `test_filter` selects the tests that prove them.
+- `prd` (optional) points at the requirement the story implements, such as `docs/prd/tags.md#FR-2`. An agent working the story reads only that section.
 - `owns` lists the files and directories (ending in `/`) the story may change: no wildcards, paths from the repo root. It decides which stories can run in parallel, and `done` refuses changes outside it. Leave it empty and the story runs alone and is not scope-checked.
 - The top-level `shared` array lists files every story edits by design, such as `src/CleanTemplate.Infrastructure/DependencyInjection.cs`. They never count as an overlap and are always in scope, like `PROGRESS.md` and `feature_list.json`.
 - Size a story so one session can finish it. "Create a tag" is right, "Build tagging" is too broad.
