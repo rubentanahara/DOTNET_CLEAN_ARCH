@@ -22,7 +22,7 @@
 - 2026-10-22: `stop-gate.sh` escapes its JSON by hand instead of using `jq`. Without `jq`, `make check` fails, and a gate built on `jq` would print nothing and let the agent stop, the one case it must block.
 - 2026-10-22: The `.http` files under `requests/` target http://localhost:5001, the port `make run` and the `http` launch profile serve.
 
-- 2026-10-22: Agents may push feature branches and open pull requests when asked; `main` changes only through a PR that passes CI. `.claude/settings.json` denies and `.codex/rules/dotnet.rules` forbids `git push origin main` and force-pushes. These are prefix matches, so a bare `git push` while on `main` still gets through; branch protection on `main` would close that gap. Rejected: keeping the full push ban, which left every change waiting for a human to push.
+- 2026-10-22: Agents may push feature branches and open pull requests when asked; `main` changes only through a PR that passes CI. `.claude/settings.json` denies and `.codex/rules/dotnet.rules` forbids `git push origin main` and force-pushes. These are prefix matches, so a bare `git push` while on `main` would get through; GitHub branch protection on `main` closes that gap for every tool. It requires a pull request, the `check` job passing on a branch that is up to date with `main`, and applies to admins; force-pushes and deletion are blocked. A direct push to `main` is rejected with `GH006: Protected branch update failed`. Rejected: keeping the full push ban, which left every change waiting for a human to push.
 
 ## Known issues
 - None.
