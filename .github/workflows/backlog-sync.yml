@@ -1,0 +1,51 @@
+name: Backlog sync
+
+on:
+  push:
+    branches: [main]
+  issues:
+    types: [edited]
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: backlog-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  GH_TOKEN: ${{ secrets.BACKLOG_SYNC_TOKEN }}
+
+jobs:
+  push:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - run: bash scripts/agent/github-sync.sh push
+
+  inbound:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - id: access
+        if: github.event_name == 'issues'
+        env:
+          SENDER: ${{ github.event.sender.login }}
+        run: |
+          permission=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$SENDER/permission" --jq .permission)
+          [[ "$permission" == admin || "$permission" == write ]] && echo "allowed=true" >> "$GITHUB_OUTPUT" || echo "allowed=false" >> "$GITHUB_OUTPUT"
+      - if: steps.access.outputs.allowed != 'false'
+        uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.BACKLOG_SYNC_TOKEN }}
+      - if: steps.access.outputs.allowed != 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          bash scripts/agent/inbound.sh
