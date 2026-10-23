@@ -13,7 +13,7 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 
 ## Commands
 - `make setup`: first run. Restores tools and packages and installs the git hooks.
-- `make check`: the only definition of green. Hook config check, build (warnings are errors), format check, all tests, API smoke test.
+- `make check`: the only definition of green. Hook config and unused package checks, build (warnings are errors), format check, all tests, API smoke test.
   It prints `CHECK PASSED`, or `CHECK FAILED at <step>` with the failing lines and the fix to apply.
 - `make format`: fixes formatting and line endings automatically.
 - `make run`: starts the API on http://localhost:5001 (Swagger at `/swagger`, health at `/health`).
@@ -58,7 +58,7 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 - When you finish, a stop hook runs `make check` on any uncommitted change and sends you back with the failing lines if it fails.
 
 ## Session routine
-- Start: read `PROGRESS.md`, then `feature_list.json`, then run `make check` to learn the baseline before editing.
+- Start: the session-start hook injects `PROGRESS.md`, the open features in `feature_list.json` and a fresh `make check` result. If that context is missing, read `PROGRESS.md`, then `feature_list.json`, then run `make check` before editing.
 - End: update `PROGRESS.md` (state, decisions with their reasons, next steps), run `make check`, and leave no stray files.
 
 ## Harness wiring

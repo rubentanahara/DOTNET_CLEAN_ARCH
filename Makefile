@@ -8,17 +8,17 @@ LOGS := .agent
 SMOKE_URL := http://127.0.0.1:5098
 SMOKE_TIMEOUT_SECONDS := 30
 
-.PHONY: check setup build test lint format smoke hooks run clean
+.PHONY: check setup build test lint format smoke hooks packages run clean
 
-check: hooks build lint test smoke
-	@echo "CHECK PASSED: hooks, build, format, tests, smoke"
+check: hooks packages build lint test smoke
+	@echo "CHECK PASSED: hooks, packages, build, format, tests, smoke"
 
 setup:
 	dotnet tool restore
 	dotnet husky install
 	dotnet restore $(SOLUTION)
 	@command -v gitleaks >/dev/null || echo "WARNING: gitleaks is not installed; the pre-commit hook needs it."
-	@command -v jq >/dev/null || echo "WARNING: jq is not installed; scripts/agent/feature.sh needs it."
+	@command -v jq >/dev/null || echo "WARNING: jq is not installed; make check and the scripts in scripts/agent need it."
 
 build:
 	@mkdir -p $(LOGS)
@@ -53,6 +53,13 @@ smoke: build
 hooks:
 	@jq -n -e --slurpfile claude .claude/settings.json --slurpfile codex .codex/hooks.json '$$claude[0].hooks != null and $$claude[0].hooks == $$codex[0].hooks' > /dev/null || { \
 		echo "CHECK FAILED at hooks. .codex/hooks.json differs from the hooks in .claude/settings.json. Edit .claude/settings.json, then run: jq '{hooks}' .claude/settings.json > .codex/hooks.json"; \
+		exit 1; }
+
+packages:
+	@unused=$$(grep -oE 'PackageVersion Include="[^"]+"' Directory.Packages.props | cut -d'"' -f2 | while read -r package; do \
+		git grep -q --untracked "PackageReference Include=\"$$package\"" -- '*.csproj' '*.props' || printf ' %s' "$$package"; done); \
+	[ -z "$$unused" ] || { \
+		echo "CHECK FAILED at packages. Directory.Packages.props pins versions that no project references:$$unused. Remove them, or add the PackageReference that needs them."; \
 		exit 1; }
 
 format:
