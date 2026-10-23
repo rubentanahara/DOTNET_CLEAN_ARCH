@@ -28,6 +28,7 @@ sync_once() {
     echo "inbound: a sync pull request is already open."
     return 0
   fi
+  bash "$SYNC" intake
   bash "$SYNC" pull
   bash "$SYNC" pull-board
   [[ -n "$(git status --porcelain feature_list.json)" ]] || return 0

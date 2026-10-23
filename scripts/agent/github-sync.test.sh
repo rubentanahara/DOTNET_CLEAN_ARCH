@@ -30,7 +30,7 @@ cat > feature_list.json << 'JSON'
 JSON
 
 source "$SCRIPTS_DIR/github-sync.sh"
-ISSUES_JSON='{"F01":{"number":5},"F02":{"number":6}}'
+ISSUES_JSON='{"F01":{"number":5,"labels":["story","priority:P1","area:backend","estimate:XS"]},"F02":{"number":6,"labels":[]},"E1":{"number":4}}'
 ON_DEFAULT_BRANCH=false
 
 rendered_body() {
@@ -44,18 +44,45 @@ done
 edited=$(rendered_body F01 | sed 's/Given d, When e, Then f\./Given x, When y, Then z./')
 expect "an edited criterion is parsed" "Given x, When y, Then z." "$(body_fields <<< "$edited")"
 
-apply_edit F01 "$(body_fields <<< "$edited")" > /dev/null
+apply_edit F01 story "$(body_fields <<< "$edited")" > /dev/null
 expect "an accepted edit reaches feature_list.json" "Given x, When y, Then z." "$(story_fields F01)"
 expect "an accepted edit keeps the state" '"not_started"' "$(jq -c '.epics[0].stories[0].state' feature_list.json)"
 
 before=$(cat feature_list.json)
 expect "an edit with no criterion is refused" "there is no acceptance criterion" \
-  "$(apply_edit F01 "$(body_fields <<< "$(rendered_body F01 | sed '/^- \[ \]/d')")")"
+  "$(apply_edit F01 story "$(body_fields <<< "$(rendered_body F01 | sed '/^- \[ \]/d')")")"
 expect "an edit that depends on itself is refused" "F01 is not another story" \
-  "$(apply_edit F01 "$(jq -c '.depends_on = ["F01"]' <<< "$(story_fields F01)")")"
+  "$(apply_edit F01 story "$(jq -c '.depends_on = ["F01"]' <<< "$(story_fields F01)")")"
 expect "an edit that makes a cycle is refused" "dependency cycle" \
-  "$(apply_edit F01 "$(jq -c '.depends_on = ["F02"]' <<< "$(story_fields F01)")")"
+  "$(apply_edit F01 story "$(jq -c '.depends_on = ["F02"]' <<< "$(story_fields F01)")")"
 [[ "$(cat feature_list.json)" == "$before" ]] || { echo "FAIL: a refused edit changed feature_list.json"; failures=$((failures + 1)); }
+expect "labels are rendered from the story fields" '["area:backend","estimate:XS","priority:P1"]' "$(desired_labels F01)"
+expect "labels on the issue are read back as fields" '{"priority":"P1","area":"backend","estimate":"XS"}' "$(label_fields F01)"
+expect "a label change on GitHub only is the GitHub side" github "$(change_side aaa bbb aaa)"
+expect "a change on both sides is a conflict" both "$(change_side aaa bbb ccc)"
+expect "a repo change only is the repo side" repo "$(change_side aaa aaa ccc)"
+expect "equal values are the same" same "$(change_side aaa ccc ccc)"
+expect "a marker carries the title and labels hashes" "title=bbb labels=ccc" "$(render_marker aaa bbb ccc)"
+expect "a marker part is read back" "bbb" "$(marker_part "$(render_marker aaa bbb ccc)" title)"
+expect "a legacy marker has no title part" "" "$(marker_part '<!-- harness-sync sha=aaa -->' title)"
+
+expect "an epic body parses to its summary" '{"summary":"The first epic."}' "$(epic_body_fields <<< $'The first epic.\n\n**Sprint:** 1. Its stories are the sub-issues of this issue.\n\n_Synced_')"
+apply_edit E1 epic '{"title":"Renamed epic"}' > /dev/null
+expect "an epic title edit reaches feature_list.json" '"Renamed epic"' "$(jq -c '.epics[0].title' feature_list.json)"
+expect "an empty epic title is refused" "the epic title is empty" "$(apply_edit E1 epic '{"title":""}')"
+apply_edit F02 story '{"name":"Deux"}' > /dev/null
+expect "a story rename reaches feature_list.json" '"Deux"' "$(jq -c '.epics[0].stories[1].name' feature_list.json)"
+
+expect "the next story id follows the highest F id" "F03" "$(next_story_id)"
+
+form=$'### Epic\n\nE1\n\n### Name\n\nThird\n\n### Story\n\nAs a user, I want three\n\n### Acceptance criteria\n\n- Given a, When b, Then c.\n- Given d, When e, Then f.\n\n### Test filter\n\nFullyQualifiedName~Three\n\n### Depends on\n\nF01\n\n### Owns\n\n`src/Three/`\n\n### Priority\n\nP2\n\n### Estimate\n\n_No response_\n\n### Area\n\nbackend\n'
+fragment=$(form_fragment F03 "$form")
+expect "a story form becomes a fragment" '"acceptance_criteria":["Given a, When b, Then c.","Given d, When e, Then f."]' "$fragment"
+expect "an unanswered form field is left out" '"priority":"P2"' "$fragment"
+expect "the form fragment keeps owns without backticks" '"owns":["src/Three/"]' "$fragment"
+[[ "$fragment" != *'"estimate"'* ]] || { echo "FAIL: an unanswered estimate was kept"; failures=$((failures + 1)); }
+expect "the fragment is accepted by feature.sh add" "Added 1 story(ies) as not_started: F03" "$(bash scripts/agent/feature.sh add <<< "$fragment")"
+expect "a form naming no epic is refused" "New epic" "$(bash scripts/agent/feature.sh add <<< "$(form_fragment F04 "${form/E1/NOPE}")" 2>&1)"
 
 if (( failures > 0 )); then
   echo "$failures github-sync test(s) failed."
