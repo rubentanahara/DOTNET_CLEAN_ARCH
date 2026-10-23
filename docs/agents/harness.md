@@ -49,10 +49,10 @@ Rules for the planned inbound side:
 - GitHub sends no event when a card moves on a user-owned project, so card moves are polled. Rejected: moving the project to an organization for its webhook, which still needs a server to receive it; and letting GitHub own `state`, which would let anyone drag a story to Done and take state out of pull request diffs.
 
 ## 3. The story graph (built, `scripts/agent/run.sh`)
-`scripts/agent/run.sh [--cli claude|codex|copilot] [--checker <cli>] [--parallel N] [--merge] [--story <id>] [--dry-run]` takes the first line of `feature.sh waves` and runs each story through the same nodes. Each agent node is a fresh headless session named after the story, so the checker never sees the maker's reasoning, and `claude --resume "<name>"` or `copilot --resume` reopens it.
+`scripts/agent/run.sh [--cli claude|codex|copilot] [--checker <cli>] [--parallel N] [--no-merge] [--story <id>] [--dry-run]` takes the first line of `feature.sh waves` and runs each story through the same nodes. Each agent node is a fresh headless session named after the story, so the checker never sees the maker's reasoning, and `claude --resume "<name>"` or `copilot --resume` reopens it.
 
 ```
-claim -> implement -> gate -> review -> done -> ship -> [merge, only with --merge]
+claim -> implement -> gate -> review -> done -> ship -> [merge, unless --no-merge]
             ^           |        |                          |
             +-- fail ---+--------+     conflict -> resolve -+
 ```
@@ -65,14 +65,14 @@ claim -> implement -> gate -> review -> done -> ship -> [merge, only with --merg
 | review | agent, `--checker`, fresh read-only session `<id> · review` | the `verify` skill, reading the test output the gate saved instead of building again; the runner also compares the tree before and after, so a reviewer that edits a file fails | back to implement with the report |
 | done | script | `feature.sh done`, which runs `make check` and the tests again and records the evidence; the card moves to In Review | back to implement |
 | ship | script | commit `feat(<id>): <name>`, push, pull request with the criteria, the review table, the evidence and `Closes #<n>`; the worktree is removed | stop the story, keep the worktree |
-| merge | script, only with `--merge` | waits for CI, updates the branch when it is behind, squash merges, pulls, syncs the board | stop the run |
+| merge | script, unless `--no-merge` | waits for CI, updates the branch when it is behind, squash merges, pulls, syncs the board | stop the run |
 | resolve | agent, `--cli`, session `<id> · merge <base>` | merges the base into the branch, fixes the conflicts, `make check`; the runner pushes only if the merge is complete and `make check` passes | stop the run |
 
 - Implement, gate and review get 3 attempts per story. After the third failure the story is blocked with the last finding as the reason, and the run goes on with the other stories.
-- Merging is opt-in. By default the run stops once the first wave has open pull requests: stories in the next wave need them merged first. `--merge` merges each one once CI is green, then runs the next wave, until nothing is ready.
+- Merging is the default. The run merges each pull request once CI is green, then runs the next wave, until nothing is ready. `--no-merge` stops at the open pull requests, which stories in the next wave need merged first.
 - The worktree is the checkpoint. A story whose worktree still exists is resumed; one whose worktree holds a blocked state is skipped and named; one with an open pull request is skipped.
 - Logs for every node are in `.agent/runs/<id>/` of the main checkout: `implement-<n>.log`, `check-<n>.log`, `review-<n>.md`, `resolve.log` and `result`.
-- The runner needs a clean tree. `--merge` also needs the default branch checked out.
+- The runner needs a clean tree. Merging also needs the default branch checked out; `--no-merge` runs from any branch.
 
 ## 4. Parallel runs (waves built, runner planned)
 - Two stories can run in parallel only when neither depends on the other, they do not change the same files, and neither changes a contract the other relies on.
@@ -80,7 +80,7 @@ claim -> implement -> gate -> review -> done -> ship -> [merge, only with --merg
 - Files every story touches by design are listed once in the top-level `shared` array and never count as an overlap. `PROGRESS.md` and `feature_list.json` are always allowed.
 - `feature.sh done` refuses while the branch changed files outside the story's `owns`; `feature.sh scope <id>` shows them. A story that truly needs another file is blocked with that file named, and a person widens its `owns`.
 - `run.sh --parallel N` (planned) runs the stories of one wave at the same time, one worktree and one tmux pane each, the pane titled with the session name. `N=1` is the sequential runner; both are the same code path.
-- Merges stay one at a time, because branch protection requires a branch that is up to date with `main`. Without `--merge`, a wave waits until a person merges its pull requests.
+- Merges stay one at a time, because branch protection requires a branch that is up to date with `main`. With `--no-merge`, a wave waits until a person merges its pull requests.
 - Every slice still edits the same lines of `DatabaseInitializer.cs` and `DependencyInjection.cs`, so they belong in `shared` and conflict on merge. Registering repositories and schema per feature removes that; it is a template change that needs its own decision record.
 - Your review bandwidth is the ceiling, not the agent count. Default to `N=1`; raise it for large backlogs of independent stories.
 
@@ -103,5 +103,5 @@ Writable nodes need each CLI's full-permission flag to run unattended. They run 
 3. **Parallel safety (built):** `owns`, `shared`, the file-overlap check in `waves`, the scope check in `done`.
 4. **GitHub to repo (planned):** the Action on push to `main`, the `issues` Action with sync pull requests, the card watcher, `feature.sh unblock`. Needs `BACKLOG_SYNC_TOKEN` and repository auto-merge.
 5. **Skills (built):** `tdd`, `verify`, `prd`, `backlog`.
-6. **Runner (built):** the story graph, sequential and `--parallel N` in tmux panes, `--merge` off by default, the three CLI adapters. First real run: F05.
+6. **Runner (built):** the story graph, sequential and `--parallel N` in tmux panes, merge on by default (`--no-merge` to stop at pull requests), the three CLI adapters. First real run: F05.
 7. **Release and deploy (planned):** release-please, an image on GHCR, staging on every merge, production behind an approval. Blocked on a deploy target and a real database: today's in-memory SQLite and `DROP TABLE` at startup lose all data on restart.
