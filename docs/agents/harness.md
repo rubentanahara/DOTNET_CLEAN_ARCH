@@ -62,7 +62,7 @@ claim -> implement -> review -> ship -> merge -> done
 |---|---|---|---|
 | claim | script | worktree `.worktrees/<id>` on branch `feat/<id>-<name>`, board In Progress | implement |
 | implement | agent, session `<id> · <name>` | the `feature` skill; may spawn subagents to explore or write tests | review when `feature.sh done` passed; block after 3 attempts |
-| review | agent, fresh and read-only, session `<id> · review` | checks the diff against each acceptance criterion with file and line evidence | ship on pass; implement with the review on fail |
+| review | agent, fresh and read-only, session `<id> · review`, the `verify` skill | checks the diff against each acceptance criterion with file and line evidence, ends with `VERIFY: PASS` or `VERIFY: FAIL` | ship on pass; implement with the review on fail |
 | ship | script | commit `feat(<id>): <name>`, push, pull request with `Closes #<issue>`, board In Review | merge |
 | merge | script, only with `--merge` | waits for CI, merges `main` into the branch when it is behind, squash merges | done; resolve on conflict; implement on red CI |
 | resolve | agent, session `<id> · merge main` | resolves the conflicts, runs `make check`, pushes | merge |
@@ -99,6 +99,6 @@ Unattended writable nodes need each CLI's full-permission flag. They run only in
 2. **Repo to GitHub (built):** `github-sync.sh push`, pushed on every state change, three-way body check, `Closes #n` from the `ship` skill.
 3. **Parallel safety (built):** `owns`, `shared`, the file-overlap check in `waves`, the scope check in `done`.
 4. **GitHub to repo (planned):** the Action on push to `main`, the `issues` Action with sync pull requests, the card watcher, `feature.sh unblock`. Needs `BACKLOG_SYNC_TOKEN` and repository auto-merge.
-5. **Skills (planned):** `tdd` and `verify`, then `prd` and `backlog`.
+5. **Skills:** `tdd` and `verify` (built); `prd` and `backlog` (planned).
 6. **Runner (planned):** the story graph, sequential then parallel, `--merge` off by default, the three CLI adapters.
 7. **Release and deploy (planned):** release-please, an image on GHCR, staging on every merge, production behind an approval. Blocked on a deploy target and a real database: today's in-memory SQLite and `DROP TABLE` at startup lose all data on restart.
