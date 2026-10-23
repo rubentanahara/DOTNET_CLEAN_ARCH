@@ -63,7 +63,7 @@ skills:
 
 harness:
 	@mkdir -p $(LOGS)
-	@{ bash scripts/agent/feature.test.sh && bash scripts/agent/run.test.sh; } > $(LOGS)/harness.log 2>&1 || { \
+	@{ bash scripts/agent/feature.test.sh && bash scripts/agent/run.test.sh && bash scripts/agent/github-sync.test.sh; } > $(LOGS)/harness.log 2>&1 || { \
 		cat $(LOGS)/harness.log; \
 		echo "CHECK FAILED at harness. A script in scripts/agent broke a rule its tests pin down. Fix the script, not the test, unless the rule changed."; \
 		exit 1; }

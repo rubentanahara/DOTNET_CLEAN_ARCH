@@ -13,6 +13,7 @@ readonly USAGE='Usage:
   scripts/agent/feature.sh start <id>
   scripts/agent/feature.sh done <id>
   scripts/agent/feature.sh block <id> "<reason>"
+  scripts/agent/feature.sh unblock <id>             make a blocked story startable again
   scripts/agent/feature.sh scope <id>               files changed on this branch that the story does not own'
 
 readonly STORIES_JQ='def fail(errors): (errors | join("\n")) + "\n" | halt_error(1);
@@ -234,6 +235,11 @@ block_story() {
   set_state "$1" blocked "$2"
 }
 
+unblock_story() {
+  require_state "$1" "blocked"
+  set_state "$1" not_started ""
+}
+
 cd "$(git rev-parse --show-toplevel)"
 command -v jq > /dev/null || fail "jq is required. Install it (brew install jq, or winget install jqlang.jq) and retry."
 
@@ -245,6 +251,7 @@ case "${1:-} $#" in
   "start 2") start_story "$2" ;;
   "done 2") finish_story "$2" ;;
   "block 3") block_story "$2" "$3" ;;
+  "unblock 2") unblock_story "$2" ;;
   "scope 2") check_scope "$2" ;;
   *) fail "$USAGE" ;;
 esac

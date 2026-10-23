@@ -76,6 +76,9 @@ expect "block parks the active story" "B is now blocked" "$(feature block B "wai
 waves_with_blocked=$(feature waves)
 expect "waves skip stories behind a blocked one" "E waits on B, which is blocked, parked, or waiting on one" "$waves_with_blocked"
 expect "waves keep the stories a blocked one does not hold up" $'C\nD' "$waves_with_blocked"
+expect "unblock makes a blocked story startable" "B is now not_started" "$(feature unblock B)"
+expect "unblock rejects a story that is not blocked" "B is not_started. This action needs: blocked." "$(feature unblock B)"
+feature block B "waiting on an API key" > /dev/null
 expect "add still works while a story is blocked" "Added 1 story(ies) as not_started: F" \
   "$(feature add <<< "{\"epics\":[{\"id\":\"E1\",\"stories\":[$(story F '[]' not_started)]}]}")"
 expect "add accepts a fragment with only sprints" "Added 0 story(ies) as not_started, and 1 sprint(s)" \

@@ -5,7 +5,42 @@ readonly FEATURES_FILE=feature_list.json
 readonly USAGE='Usage:
   scripts/agent/github-sync.sh push         create or update the project, every epic and story issue, and their board fields
   scripts/agent/github-sync.sh push <id>    update one story or epic (feature.sh runs this after start, block and done)
-  scripts/agent/github-sync.sh issue <id>   print the issue number of a story or epic'
+  scripts/agent/github-sync.sh issue <id>   print the issue number of a story or epic
+  scripts/agent/github-sync.sh pull         write story edits made on GitHub into feature_list.json (scripts/agent/inbound.sh opens the pull request)
+  scripts/agent/github-sync.sh pull-board   turn card moves on the board into feature_list.json changes, or undo them'
+readonly FEATURE_SCRIPT=scripts/agent/feature.sh
+readonly INVALID_PATH_REGEX='[*?\[]|^/|(^|/)\.\.(/|$)'
+readonly BODY_FIELDS_JQ='(gsub("\r"; "") | split("\n")) as $lines
+  | def trim: sub("^\\s+"; "") | sub("\\s+$"; "");
+  def section($name):
+    ($lines | index("### \($name)")) as $start
+    | if $start == null then [] else
+        $lines[$start + 1:] as $rest
+        | ([$rest | to_entries[] | select(.value | test("^(### |_Synced|\\*\\*State)")) | .key] | first // ($rest | length)) as $end
+        | $rest[:$end] end;
+  def checklist($name): [section($name)[] | capture("^- \\[[ xX]\\] (?<text>.*)$")? | .text | trim];
+  def bullets($name): [section($name)[] | select(startswith("- ")) | ltrimstr("- ") | trim];
+  (section("Details") | map(select(startswith("|")))) as $table
+  | ($table[2] // "" | split("|")) as $row
+  | def cell($i): ($row[$i] // "" | trim);
+  {title: ($lines[0] | trim),
+   acceptance_criteria: checklist("Acceptance criteria"),
+   tasks: checklist("Tasks"),
+   depends_on: [bullets("Depends on")[] | split(" ") | last],
+   owns: [bullets("Owns")[] | ltrimstr("`") | rtrimstr("`")],
+   priority: cell(3), estimate: cell(4), area: cell(5),
+   test_filter: ($row[6:-1] | join("|") | trim | ltrimstr("`") | rtrimstr("`"))}'
+readonly STORY_FIELDS_JQ='.epics[].stories[] | select(.id == $id)
+  | {title, acceptance_criteria, tasks: (.tasks // []), depends_on: (.depends_on // []), owns: (.owns // []),
+     priority: (.priority // ""), estimate: (.estimate // ""), area: (.area // ""), test_filter}'
+readonly FIELD_ERRORS_JQ='[.epics[].stories[].id] as $ids
+  | [if ($fields.title | length) == 0 then "the story text is empty" else empty end,
+     if ($fields.acceptance_criteria | length) == 0 then "there is no acceptance criterion" else empty end,
+     if ($fields.test_filter | length) == 0 then "the test filter is empty" else empty end,
+     ($fields.depends_on[] | select(. == $id or ($ids | index(.) | not)) | "\(.) is not another story"),
+     ($fields.owns[] | select(test($invalid_path)) | "\(.) is not a repo-relative path"),
+     if ($fields.estimate | IN("", "XS", "S", "M", "L", "XL") | not) then "estimate \($fields.estimate) is not XS, S, M, L or XL" else empty end]
+  | join("; ")'
 readonly MARKER_REGEX='^<!-- harness-sync sha=([0-9a-f]+) -->$'
 readonly PLACEHOLDER_BODY='Created by scripts/agent/github-sync.sh. The same run fills this in.'
 readonly FOOTER='_Synced from `feature_list.json` by `scripts/agent/github-sync.sh`. Change the story there: edits made here are reported, not applied._'
@@ -21,6 +56,8 @@ main() {
     "push 1") push_backlog "" ;;
     "push 2") push_backlog "$2" ;;
     "issue 2") print_issue_number "$2" ;;
+    "pull 1") pull_backlog ;;
+    "pull-board 1") pull_board ;;
     *) fail "$USAGE" ;;
   esac
 }
@@ -167,7 +204,7 @@ reconcile_issue() {
   desired_title=$(jq -r .issue_title <<< "$item")
   desired_body=$(jq -r .body <<< "$item")
   [[ "$title" == "$desired_title" ]] || { gh issue edit "$number" --repo "$REPO" --title "$desired_title" > /dev/null; report "renamed #$number to $desired_title"; }
-  reconcile_body "$number" "$body" "$desired_body"
+  reconcile_body "$key" "$number" "$body" "$desired_body"
   if [[ "$(jq -r .close <<< "$item")" == true && "$state" == OPEN ]]; then
     gh issue close "$number" --repo "$REPO" --reason completed --comment "$(jq -r .close_comment <<< "$item")" > /dev/null
     report "closed #$number: passing on the default branch"
@@ -177,7 +214,7 @@ reconcile_issue() {
 }
 
 reconcile_body() {
-  local number=$1 body=$2 desired=$3 last_hash current_hash desired_hash
+  local key=$1 number=$2 body=$3 desired=$4 last_hash current_hash desired_hash
   last_hash=$(marker_hash "$body")
   current_hash=$(content_without_marker "$body" | content_hash)
   desired_hash=$(content_hash <<< "$desired")
@@ -186,17 +223,117 @@ reconcile_body() {
       report "#$number has a body this script did not write. Not overwritten."
       return 0
     fi
+  elif [[ "$current_hash" != "$last_hash" && "$desired_hash" != "$last_hash" ]] && body_matches_story "$key" "$body"; then
+    :
   elif [[ "$current_hash" != "$last_hash" && "$desired_hash" != "$last_hash" ]]; then
     report "#$number changed on GitHub and in feature_list.json since the last sync. Conflict: not overwritten."
     return 0
   elif [[ "$current_hash" != "$last_hash" ]]; then
-    report "#$number was edited on GitHub. Not applied to feature_list.json yet; copy the change there or undo it."
+    report "#$number was edited on GitHub. Not applied yet: scripts/agent/github-sync.sh pull writes it into feature_list.json."
     return 0
   elif [[ "$desired_hash" == "$last_hash" ]]; then
     return 0
   fi
   printf '%s\n\n<!-- harness-sync sha=%s -->\n' "$desired" "$desired_hash" | gh issue edit "$number" --repo "$REPO" --body-file - > /dev/null
   report "updated #$number"
+}
+
+body_fields() {
+  jq -R -s -c "$BODY_FIELDS_JQ"
+}
+
+story_fields() {
+  jq -c --arg id "$1" "$STORY_FIELDS_JQ" "$FEATURES_FILE"
+}
+
+body_matches_story() {
+  local story
+  story=$(story_fields "$1")
+  [[ -n "$story" && "$story" == "$(body_fields <<< "$2")" ]]
+}
+
+story_ids() {
+  jq -r '.epics[].stories[] | "\(.id) \(.state)"' "$FEATURES_FILE"
+}
+
+desired_field() {
+  desired_items | jq -r --arg key "$1" --arg field "$2" 'select(.key == $key) | .[$field]'
+}
+
+pull_backlog() {
+  load_repository
+  load_issues
+  local key state body last_hash current_hash desired_hash
+  while read -r key state; do
+    body=$(issue_field "$key" body)
+    last_hash=$(marker_hash "$body")
+    [[ -n "$last_hash" ]] || continue
+    current_hash=$(content_without_marker "$body" | content_hash)
+    [[ "$current_hash" != "$last_hash" ]] || continue
+    body_matches_story "$key" "$body" && continue
+    desired_hash=$(desired_field "$key" body | content_hash)
+    if [[ "$desired_hash" != "$last_hash" ]]; then
+      report "$key changed on GitHub and in feature_list.json since the last sync. Conflict: not applied."
+      continue
+    fi
+    apply_edit "$key" "$(content_without_marker "$body" | body_fields)"
+  done < <(story_ids)
+}
+
+apply_edit() {
+  local key=$1 fields=$2 errors backup
+  errors=$(jq -r --arg id "$key" --argjson fields "$fields" --arg invalid_path "$INVALID_PATH_REGEX" "$FIELD_ERRORS_JQ" "$FEATURES_FILE")
+  if [[ -n "$errors" ]]; then
+    report "$key: the edit on GitHub is not applied: $errors."
+    return 0
+  fi
+  backup=$(cat "$FEATURES_FILE")
+  jq --arg id "$key" --argjson fields "$fields" '.epics |= map(.stories |= map(if .id == $id then . + $fields else . end))' "$FEATURES_FILE" > "$FEATURES_FILE.tmp"
+  mv "$FEATURES_FILE.tmp" "$FEATURES_FILE"
+  if ! bash "$FEATURE_SCRIPT" waves > /dev/null 2>&1; then
+    printf '%s\n' "$backup" > "$FEATURES_FILE"
+    report "$key: the edit on GitHub breaks the backlog (dependency cycle or a dependency on a later sprint). Not applied."
+    return 0
+  fi
+  report "$key: applied the edit made on GitHub to $FEATURES_FILE"
+}
+
+pull_board() {
+  load_repository
+  require_project
+  load_fields
+  load_issues
+  local items open_pull_requests id state number card status
+  items=$(board_items)
+  open_pull_requests=$(gh pr list --repo "$REPO" --state open --json body --jq '[.[].body] | join("\n")')
+  while read -r id state; do
+    number=$(issue_field "$id" number)
+    card=$([[ -n "$number" ]] && jq -c --argjson n "$number" '.[] | select(.number == $n)' <<< "$items")
+    [[ -n "$card" ]] || continue
+    status=$(jq -r '.status // empty' <<< "$card")
+    case "$status:$state" in
+      Blocked:not_started | Blocked:active) HARNESS_GITHUB_SYNC=off bash "$FEATURE_SCRIPT" block "$id" "Moved to Blocked on the board." ;;
+      Todo:blocked) HARNESS_GITHUB_SYNC=off bash "$FEATURE_SCRIPT" unblock "$id" ;;
+      Done:passing) ;;
+      Done:* | "In Review":not_started | "In Review":active | "In Review":blocked)
+        if [[ "$status" == Done ]] || ! has_pull_request "$id" "$number" "$open_pull_requests"; then
+          undo_card_move "$id" "$number" "$(jq -r .id <<< "$card")" "$status"
+        fi ;;
+    esac
+  done < <(story_ids)
+}
+
+has_pull_request() {
+  local id=$1 number=$2 open_pull_requests=$3
+  grep -qE "Closes #$number([^0-9]|$)" <<< "$open_pull_requests" \
+    || [[ -n "$(git ls-remote --heads origin "feat/$(tr '[:upper:]' '[:lower:]' <<< "$id")-*")" ]]
+}
+
+undo_card_move() {
+  local id=$1 number=$2 item_id=$3 moved_to=$4 desired
+  desired=$(desired_field "$id" status)
+  set_status "$item_id" "$number" "$desired" "$moved_to" "$id"
+  gh issue comment "$number" --repo "$REPO" --body "Only \`feature.sh done\` passes a story, so the card is back in $desired. Do not move a card to $moved_to by hand." > /dev/null
 }
 
 marker_hash() {
@@ -334,4 +471,6 @@ fail() {
   exit 1
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

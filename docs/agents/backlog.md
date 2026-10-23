@@ -46,6 +46,7 @@ Change it only through `scripts/agent/feature.sh`. The script owns `state` and `
 | `feature.sh start <id>` | `not_started` or `blocked` to `active`. Refuses while another story is active or a dependency is not passing. |
 | `feature.sh done <id>` | `active` to `passing`, after `PROGRESS.md` mentions the id, `make check` passes and the story's own tests pass. |
 | `feature.sh scope <id>` | Lists the files changed on this branch that the story does not own. `done` runs the same check. |
+| `feature.sh unblock <id>` | Makes a blocked story `not_started` again, so it can run. |
 | `feature.sh block <id> "<reason>"` | Parks a story that something outside the repo stops. Stories that depend on it leave the waves until it is unblocked with `start`. |
 
 A fragment for `add` has the same shape as the file. Name an existing epic by `id` to add stories to it; a new epic also needs `title` and `sprint`:

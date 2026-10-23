@@ -15,7 +15,7 @@ Each section says whether it is **built** or **planned**. Keep this file true: c
 
 Hooks close the loop at both ends: the session-start hook injects state and a fresh `make check`, and the stop hook refuses to stop on a red check or an unchanged `PROGRESS.md`.
 
-## 2. One source of truth, synced with GitHub in near real time (repo to GitHub built, GitHub to repo planned)
+## 2. One source of truth, synced with GitHub in near real time (repo to GitHub built, GitHub to repo built)
 The repo is the system of record. GitHub is a live view of it and an inbox for changes, never a second owner of the same field.
 
 | Field | Owner | Flows |
@@ -30,9 +30,9 @@ How each change travels:
 |---|---|---|---|---|
 | `feature.sh start`, `block`, `done` | repo to GitHub | `feature.sh` runs `github-sync.sh push <id>` from any branch or worktree | ~10 s | built |
 | Anything in `feature_list.json` | repo to GitHub | `scripts/agent/github-sync.sh push` by hand | ~10 s, ~90 s on the first run | built |
-| Merge to `main` | repo to GitHub | an Action on push to `main` runs the same push; `Closes #n` closes the issue | <1 min | planned |
-| Issue body edited, story-form issue opened, labels changed, closed or reopened | GitHub to repo | an Action on `issues` events turns the change into a `sync/backlog` pull request that merges itself when green | ~2-4 min | planned |
-| Card dragged, board field edited | GitHub to repo | polling: a local watcher every 30 s, a scheduled Action every 15 min | 30 s to 15 min | planned |
+| Merge to `main` | repo to GitHub | an Action on push to `main` runs the same push; `Closes #n` closes the issue | <1 min | built |
+| Story text, acceptance criteria, tasks, `depends_on`, `owns`, Priority, Estimate or Area edited in the issue body | GitHub to repo | an Action on `issues` events and every 15 min runs `scripts/agent/inbound.sh`: `github-sync.sh pull` writes the edit into `feature_list.json`, and the script opens a `sync/backlog-*` pull request that merges itself when green | ~2-4 min | built |
+| Card dragged, board field edited | GitHub to repo | polling: `scripts/agent/inbound.sh --watch` every 30 s locally, a scheduled Action every 15 min; `github-sync.sh pull-board` | 30 s to 15 min | built |
 
 `github-sync.sh push` (built):
 - One project per repo, found by `project_title`, created and linked on the first full push, with Status options Todo, In Progress, In Review, Blocked, Done, and fields Priority, Estimate, Area and Sprint.
@@ -41,9 +41,10 @@ How each change travels:
 - Status: `not_started` Todo, `active` In Progress, `blocked` Blocked, `passing` In Review on a story branch and Done (issue closed) on the default branch. A full push never moves a card from In Progress or In Review back to Todo, because the story may be running on a branch whose state `main` does not have yet.
 - A failed push never undoes the state change; `feature.sh` prints how to retry. `HARNESS_GITHUB_SYNC=off` turns the push off, as the harness tests do.
 
-Rules for the planned inbound side:
+Inbound rules (built):
 - A card dragged to In Review or Done is set back with a comment: only `feature.sh done` passes a story.
 - A card dragged to Blocked runs `feature.sh block`; from Blocked to Todo runs `feature.sh unblock`.
+- A pulled edit is checked before it is written: text, a criterion and a test filter present, `depends_on` naming other stories, `owns` as repo-relative paths, a valid estimate, and `feature.sh waves` still passing. A failed check is reported and the issue is left alone. A body edited on both sides since the last sync is a conflict and is not applied. Editing `State` or `Evidence` in the body does nothing: they are not parsed.
 - Edits from GitHub are accepted only from authors with write access, because the repo is public and issue text reaches agents as instructions.
 - The workflows need a `BACKLOG_SYNC_TOKEN` secret (a classic token with `repo` and `project`) and repository auto-merge: the default token cannot reach a user-owned project, and pull requests it opens wait for a person to approve their CI runs.
 - GitHub sends no event when a card moves on a user-owned project, so card moves are polled. Rejected: moving the project to an organization for its webhook, which still needs a server to receive it; and letting GitHub own `state`, which would let anyone drag a story to Done and take state out of pull request diffs.
@@ -101,7 +102,7 @@ Writable nodes need each CLI's full-permission flag to run unattended. They run 
 1. **Backlog primitive (built):** epic and story format, `feature.sh add/show/status/waves`, dependency gate on `start`, harness tests in `make check`, a free smoke-test port.
 2. **Repo to GitHub (built):** `github-sync.sh push`, pushed on every state change, three-way body check, `Closes #n` from the `ship` skill.
 3. **Parallel safety (built):** `owns`, `shared`, the file-overlap check in `waves`, the scope check in `done`.
-4. **GitHub to repo (planned):** the Action on push to `main`, the `issues` Action with sync pull requests, the card watcher, `feature.sh unblock`. Needs `BACKLOG_SYNC_TOKEN` and repository auto-merge.
+4. **GitHub to repo (built):** `.github/workflows/backlog-sync.yml` (push to `main` runs the push; `issues` edits and a 15-minute schedule run `inbound.sh`), `github-sync.sh pull` and `pull-board`, `feature.sh unblock`. Uses the `BACKLOG_SYNC_TOKEN` secret and repository auto-merge. Not built: a story-form issue opened on GitHub, label changes, and edits to the issue title or to an epic body, which are reported and never applied.
 5. **Skills (built):** `tdd`, `verify`, `prd`, `backlog`.
 6. **Runner (built):** the story graph, sequential and `--parallel N` in tmux panes, merge on by default (`--no-merge` to stop at pull requests), the three CLI adapters. First real run: F05.
 7. **Release and deploy (planned):** release-please, an image on GHCR, staging on every merge, production behind an approval. Blocked on a deploy target and a real database: today's in-memory SQLite and `DROP TABLE` at startup lose all data on restart.
