@@ -26,6 +26,7 @@ readonly FEATURE=scripts/agent/feature.sh
 readonly SYNC=scripts/agent/github-sync.sh
 readonly FINGERPRINT=scripts/agent/tree-fingerprint.sh
 readonly POLL_SECONDS=15
+readonly CHECKS_APPEAR_ROUNDS=20
 readonly FEEDBACK_LINES=60
 readonly SLUG_MAX_LENGTH=40
 readonly HUSKY_RUNTIME_DIR=.husky/_
@@ -334,8 +335,17 @@ merge_wave() {
   done
 }
 
+wait_for_checks() {
+  local round
+  for (( round = 0; round < CHECKS_APPEAR_ROUNDS; round++ )); do
+    [[ "$(gh pr view "$1" --json statusCheckRollup --jq '.statusCheckRollup | length')" != 0 ]] && return 0
+    sleep "$POLL_SECONDS"
+  done
+}
+
 merge_pull_request() {
   local id=$1 url=$2 state round
+  wait_for_checks "$url"
   for round in 1 2 3; do
     gh pr checks "$url" --watch --fail-fast --interval "$POLL_SECONDS" > /dev/null 2>&1 || {
       report "$id: CI failed on $url. Not merged; the run stops here."
