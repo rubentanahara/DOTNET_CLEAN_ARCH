@@ -9,15 +9,16 @@ implement (a session named "<id> · <name>"), make check, scope and test gate, a
 
   --cli       CLI that implements. Default: copilot.
   --checker   CLI that reviews. Default: the same as --cli.
-  --model     model of the implementer. Default: claude-sonnet-5-5, auto (copilot) or gpt-5.6-terra (codex).
-  --checker-model  model of the reviewer. Default: the default of the checker CLI.
+  --model     model of the implementer. Default: claude-sonnet-5.5 (copilot), claude-sonnet-5-5 (claude) or gpt-5.6-terra (codex).
+  --checker-model  model of the reviewer. Default: claude-opus-5.5 (copilot), otherwise the default of the checker CLI.
   --parallel  how many stories of a wave run at once, one tmux pane each. Default: 1.
   --no-merge  stop at open pull requests. Default: merge each pull request once CI is green, then run the next wave.
   --story     run only this story.
   --dry-run   print what would run, and start nothing.'
 readonly MAX_ATTEMPTS=3
 readonly CLAUDE_DEFAULT_MODEL=claude-sonnet-5-5
-readonly COPILOT_DEFAULT_MODEL=auto
+readonly COPILOT_DEFAULT_MODEL=claude-sonnet-5.5
+readonly COPILOT_DEFAULT_CHECKER_MODEL=claude-opus-5.5
 readonly CODEX_DEFAULT_MODEL=gpt-5.6-terra
 readonly WORKTREES_DIR=.worktrees
 readonly RUNS_DIR=.agent/runs
@@ -67,7 +68,7 @@ parse_arguments() {
   done
   CHECKER=${CHECKER:-$CLI}
   MODEL=${MODEL:-$(default_model "$CLI")}
-  CHECKER_MODEL=${CHECKER_MODEL:-$(default_model "$CHECKER")}
+  CHECKER_MODEL=${CHECKER_MODEL:-$(default_checker_model "$CHECKER")}
   local cli
   for cli in "$CLI" "$CHECKER"; do
     [[ " claude codex copilot " == *" $cli "* ]] || fail "Unknown CLI '$cli'. Use claude, codex or copilot."
@@ -417,6 +418,13 @@ resolve_conflicts() {
     return 1
   }
   git worktree remove "$dir" > /dev/null 2>&1 || true
+}
+
+default_checker_model() {
+  case "$1" in
+    copilot) echo "$COPILOT_DEFAULT_CHECKER_MODEL" ;;
+    *) default_model "$1" ;;
+  esac
 }
 
 default_model() {
