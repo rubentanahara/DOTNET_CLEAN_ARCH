@@ -2,6 +2,7 @@
 set -euo pipefail
 
 readonly FEATURES_FILE=feature_list.json
+readonly PROGRESS_FILE=PROGRESS.md
 readonly USAGE='Usage:
   scripts/agent/feature.sh add <id> "<behavior>" "<dotnet test filter>"
   scripts/agent/feature.sh start <id>
@@ -60,6 +61,7 @@ count_passed_tests() {
 finish_feature() {
   local id=$1 test_filter output passed revision
   require_state "$id" "active"
+  grep -qwF "$id" "$PROGRESS_FILE" || fail "$PROGRESS_FILE does not mention $id, so it stays active. Add what $id changed, why, and what comes next, then run done again."
   make check || fail "make check failed, so $id stays active. Fix the failures above, then run done again."
   test_filter=$(jq -r --arg id "$id" '.[] | select(.id == $id) | .test_filter' "$FEATURES_FILE")
   output=$(dotnet test "$(ls ./*.slnx | head -1)" --no-build --filter "$test_filter" 2>&1) || {

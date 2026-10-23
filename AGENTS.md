@@ -13,7 +13,7 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 
 ## Commands
 - `make setup`: first run. Restores tools and packages and installs the git hooks.
-- `make check`: the only definition of green. Hook config and unused package checks, build (warnings are errors), format check, all tests, API smoke test.
+- `make check`: the only definition of green. Hook config, skill copy and unused package checks, build (warnings are errors), format check, all tests, API smoke test.
   It prints `CHECK PASSED`, or `CHECK FAILED at <step>` with the failing lines and the fix to apply.
 - `make format`: fixes formatting and line endings automatically.
 - `make run`: starts the API on http://localhost:5001 (Swagger at `/swagger`, health at `/health`).
@@ -46,7 +46,7 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 - `scripts/agent/feature.sh add <id> "<behavior>" "<test filter>"` adds an entry.
 - `scripts/agent/feature.sh start <id>` before writing code. It refuses while another feature is active.
 - Touch only what the active feature needs. Note unrelated problems in `PROGRESS.md` instead of fixing them.
-- `scripts/agent/feature.sh done <id>` marks the feature `passing` only after `make check` passes and its own tests ran and passed.
+- `scripts/agent/feature.sh done <id>` marks the feature `passing` only after `PROGRESS.md` mentions `<id>`, `make check` passes, and its own tests ran and passed.
 - `scripts/agent/feature.sh block <id> "<reason>"` when something outside the repo stops you.
 - Small fixes and questions do not need an entry. The Definition of Done still applies.
 
@@ -55,7 +55,7 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 - New behavior has a test that fails without the change.
 - Feature work: `scripts/agent/feature.sh done <id>` succeeded.
 - `PROGRESS.md` says what changed, why, and what comes next.
-- When you finish, a stop hook runs `make check` on any uncommitted change and sends you back with the failing lines if it fails.
+- When you finish, a stop hook runs `make check` on any uncommitted change and sends you back with the failing lines if it fails. It also sends you back when files changed during the session but `PROGRESS.md` did not.
 
 ## Session routine
 - Start: the session-start hook injects `PROGRESS.md`, the open features in `feature_list.json` and a fresh `make check` result. If that context is missing, read `PROGRESS.md`, then `feature_list.json`, then run `make check` before editing.
@@ -64,6 +64,7 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 ## Harness wiring
 - Claude Code and Copilot CLI read this file and the session-start and stop hooks in `.claude/settings.json`. Claude Code also takes its permissions from it.
 - Copilot CLI also reads `.github/hooks/session-kickoff.json`, which submits a first prompt so the session-start hook runs at launch.
+- Skills live in `.agents/skills/<name>/SKILL.md`, which Codex and Copilot CLI read, and are copied to `.claude/skills/` for Claude Code. `make check` fails at `skills` when the copies differ. Invoke them with `/feature` and `/ship` in Claude Code and Copilot CLI, and with `$feature` and `$ship` in Codex.
 - The hooks in `.codex/hooks.json` must match the hooks in `.claude/settings.json`; `make check` fails at `hooks` when they differ. The hook logic lives only in `scripts/agent/`.
 - Codex reads this file and `.codex/`: trust the project, then approve the session-start and stop hooks with `/hooks`, again after any change to `.codex/hooks.json`.
   Its sandbox blocks the local sockets `dotnet` needs, so `.codex/rules/dotnet.rules` lets `make`, `dotnet build/test/format` and `feature.sh` run outside it, and forbids pushing to `main` and force-pushing.
