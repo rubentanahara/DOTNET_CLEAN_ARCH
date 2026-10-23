@@ -1,0 +1,64 @@
+name: Story
+description: Propose a story for the backlog. The backlog sync adds it to feature_list.json in a pull request.
+labels: ["story"]
+body:
+  - type: input
+    id: epic
+    attributes:
+      label: Epic
+      description: Id of an existing epic, for example EPIC-OPERATIONS.
+    validations:
+      required: true
+  - type: input
+    id: name
+    attributes:
+      label: Name
+      description: Short name, used in the issue title.
+    validations:
+      required: true
+  - type: textarea
+    id: story
+    attributes:
+      label: Story
+      description: As a ..., I want ... so that ...
+    validations:
+      required: true
+  - type: textarea
+    id: criteria
+    attributes:
+      label: Acceptance criteria
+      description: One Given, When, Then per line.
+    validations:
+      required: true
+  - type: input
+    id: test_filter
+    attributes:
+      label: Test filter
+      description: A dotnet test filter, for example FullyQualifiedName~VersionEndpointTests.
+    validations:
+      required: true
+  - type: textarea
+    id: depends_on
+    attributes:
+      label: Depends on
+      description: Story ids, one per line.
+  - type: textarea
+    id: owns
+    attributes:
+      label: Owns
+      description: Repo-relative paths the story may change, one per line. End a directory with /.
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: [P0, P1, P2, P3]
+  - type: dropdown
+    id: estimate
+    attributes:
+      label: Estimate
+      options: [XS, S, M, L, XL]
+  - type: input
+    id: area
+    attributes:
+      label: Area
+      description: For example backend.
