@@ -23,6 +23,7 @@ readonly FINGERPRINT=scripts/agent/tree-fingerprint.sh
 readonly POLL_SECONDS=15
 readonly FEEDBACK_LINES=60
 readonly SLUG_MAX_LENGTH=40
+readonly HUSKY_RUNTIME_DIR=.husky/_
 
 main() {
   parse_arguments "$@"
@@ -169,7 +170,12 @@ run_story() {
   mkdir -p "$(story_log_dir "$id")"
   rm -f "$(result_file "$id")"
   claim_story "$id" "$dir" || { record "$id" failed "could not create its worktree or start it"; return 1; }
-  for (( attempt = 1; attempt <= MAX_ATTEMPTS; attempt++ )); do
+  if [[ "$(worktree_state "$id")" == passing ]]; then
+    attempt=$(find "$(story_log_dir "$id")" -name 'implement-*.log' | wc -l | tr -d ' ')
+    report "$id: already passing in its worktree after $attempt attempt(s); shipping it"
+    passed=true
+  fi
+  $passed || for (( attempt = 1; attempt <= MAX_ATTEMPTS; attempt++ )); do
     report "$id: implement, attempt $attempt of $MAX_ATTEMPTS ($CLI, session \"$(session_name "$id")\")"
     implement_story "$id" "$dir" "$attempt" "$feedback"
     if [[ "$(worktree_state "$id")" == blocked ]]; then
@@ -192,12 +198,13 @@ run_story() {
     passed=true
     break
   done
+  (( attempt > MAX_ATTEMPTS )) && attempt=$MAX_ATTEMPTS
   if ! $passed; then
     (cd "$dir" && bash "$FEATURE" block "$id" "The runner gave up after $MAX_ATTEMPTS attempts. Last finding: $(head -c 300 <<< "$feedback" | tr '\n' ' ')" > /dev/null)
     record "$id" blocked "gave up after $MAX_ATTEMPTS attempts; see $(story_log_dir "$id")"
     return 0
   fi
-  CHECK_LOG="$(story_log_dir "$id")/check-$attempt.log"
+  CHECK_LOG=$(ls -t "$(story_log_dir "$id")"/check-*.log 2> /dev/null | head -n 1)
   ship_story "$id" "$dir" "$attempt" || { record "$id" failed "could not commit, push or open the pull request; the worktree $dir is kept"; return 1; }
 }
 
@@ -211,10 +218,13 @@ claim_story() {
   else
     git worktree add -q -b "$branch" "$dir" HEAD || return 1
   fi
+  if [[ -d "$ROOT/$HUSKY_RUNTIME_DIR" && ! -d "$dir/$HUSKY_RUNTIME_DIR" ]]; then
+    cp -R "$ROOT/$HUSKY_RUNTIME_DIR" "$dir/$HUSKY_RUNTIME_DIR" || return 1
+  fi
   state=$(worktree_state "$id")
   case "$state" in
     not_started | blocked) (cd "$dir" && bash "$FEATURE" start "$id") || return 1 ;;
-    active) ;;
+    active | passing) ;;
     *) report "$id is $state in its worktree."; return 1 ;;
   esac
 }
@@ -301,7 +311,7 @@ pull_request_body() {
   bash "$FEATURE" show "$id" | jq -r '"## \(.id) · \(.name)\n\(.title)\n\n### Acceptance criteria\n" + ([.acceptance_criteria[] | "- [x] \(.)"] | join("\n"))'
   printf '\n### Independent review (%s, fresh session)\n' "$CHECKER"
   sed -n '/^|/,$p' "$dir/$RUNNER_DIR/review.md"
-  printf '\n### Evidence\n- `%s`\n- `feature.sh done`: %s\n- Implemented by %s in session "%s", %s attempt(s).\n' \
+  printf '\n\n### Evidence\n- `%s`\n- `feature.sh done`: %s\n- Implemented by %s in session "%s", %s attempt(s).\n' \
     "$(grep -m 1 'CHECK PASSED' "$CHECK_LOG" 2> /dev/null || echo 'make check passed')" \
     "$(cd "$dir" && bash "$FEATURE" show "$id" | jq -r .evidence)" "$CLI" "$(session_name "$id")" "$attempts"
   [[ -n "$issue" ]] && printf '\nCloses #%s\n' "$issue"

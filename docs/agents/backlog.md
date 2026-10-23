@@ -20,7 +20,8 @@ Change it only through `scripts/agent/feature.sh`. The script owns `state` and `
       "depends_on": [], "tasks": [],
       "owns": ["src/CleanTemplate.Api/Features/Tags/", "src/CleanTemplate.Application/Features/Tags/",
                "src/CleanTemplate.Domain/Models/Tags/", "src/CleanTemplate.Infrastructure/Dapper/Tags/",
-               "src/CleanTemplate.Contracts/Tags/", "tests/CleanTemplate.Api.IntegrationTests/TagsEndpointTests.cs"],
+               "src/CleanTemplate.Contracts/Tags/", "tests/CleanTemplate.Api.IntegrationTests/TagsEndpointTests.cs",
+               "requests/Tags/"],
       "test_filter": "FullyQualifiedName~TagsEndpointTests",
       "state": "not_started", "evidence": ""
     }]
