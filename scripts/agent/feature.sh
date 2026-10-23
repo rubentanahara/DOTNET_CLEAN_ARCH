@@ -61,7 +61,7 @@ readonly UNFINISHED_STATES='["not_started","active","blocked"]'
 readonly ADD_JQ='
 def text: type == "string" and length > 0;
 def normalize: {id, name, title, area: (.area // ""), priority: (.priority // "P1"), estimate: (.estimate // ""),
-  acceptance_criteria, depends_on: (.depends_on // []), tasks: (.tasks // []), owns: (.owns // []), test_filter,
+  acceptance_criteria, depends_on: (.depends_on // []), tasks: (.tasks // []), owns: (.owns // []), prd: (.prd // ""), test_filter,
   state: "not_started", evidence: ""} + (if has("sprint") then {sprint} else {} end);
 ([.epics[].stories[].id]) as $existing
 | ([$fragment.epics[]?.stories[]?]) as $new

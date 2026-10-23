@@ -103,6 +103,8 @@ expect "add rejects owns outside the repo" "X owns must be repo-relative paths" 
 expect "add accepts shared paths" "Added 0 story(ies) as not_started, and 0 sprint(s)" \
   "$(feature add <<< '{"shared":["src/Shared/Schema.sql"]}')"
 expect "add appends to shared" '"src/Shared/Schema.sql"' "$(cat feature_list.json)"
+expect "add keeps the prd reference" '"prd": "docs/prd/e.md#FR-1"' \
+  "$(feature add <<< '{"epics":[{"id":"E1","stories":[{"id":"G","name":"g","title":"g","acceptance_criteria":["x"],"test_filter":"g","prd":"docs/prd/e.md#FR-1","owns":["src/G/"]}]}]}' > /dev/null; feature show G)"
 
 git add -A > /dev/null && git -c user.email=t@t -c user.name=t commit -qm base && git branch -M main && git switch -qc feat/p
 feature start P > /dev/null

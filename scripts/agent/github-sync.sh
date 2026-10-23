@@ -311,6 +311,7 @@ desired_items() {
           body: ([.title]
             + section("Acceptance criteria"; [.acceptance_criteria[] | checked($done)])
             + section("Tasks"; [.tasks[] | checked($done)])
+            + section("Requirement"; [(.prd // "") | select(. != "") | "- `\(.)`"])
             + section("Depends on"; [.depends_on[] | "- \(ref(.))"])
             + section("Owns"; [(.owns // [])[] | "- `\(.)`"])
             + ["", "### Details", "| Epic | Sprint | Priority | Estimate | Area | Test filter |", "|---|---|---|---|---|---|",

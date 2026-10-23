@@ -13,6 +13,7 @@ The user gives a story id (for example F05), a behavior to build, or nothing.
      Write the acceptance criteria as Given/When/Then outcomes a test can check: routes, status codes, validation rules, what is returned.
    - Nothing: take the first id on the first line of `scripts/agent/feature.sh waves`. If it prints nothing, say so and stop.
 2. Run `scripts/agent/feature.sh show <id>` and `scripts/agent/feature.sh start <id>`. If start refuses, stop and report why.
+   When the story has a `prd` reference such as `docs/prd/tags.md#FR-2`, read only that requirement's section of the PRD.
 3. Build the slice with the `tdd` skill, one acceptance criterion at a time, following `docs/agents/add-feature.md` and copying the shape of the Notes files it names.
    Each acceptance criterion needs a test that the story's `test_filter` selects. Change only files in the story's `owns`, plus the `shared` files.
    You may hand exploration or test drafting to subagents. Keep the edits and the final `make check` in this session.
