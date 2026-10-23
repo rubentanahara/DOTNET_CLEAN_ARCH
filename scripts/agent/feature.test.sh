@@ -2,6 +2,7 @@
 set -uo pipefail
 
 readonly FEATURE_SCRIPT="$(cd "$(dirname "$0")" && pwd)/feature.sh"
+export HARNESS_GITHUB_SYNC=off
 failures=0
 
 feature() {
@@ -25,8 +26,8 @@ expect_unchanged() {
 }
 
 story() {
-  printf '{"id":"%s","name":"Story %s","title":"As a user, I want %s","acceptance_criteria":["Given, When, Then"],"test_filter":"FullyQualifiedName~%s","depends_on":%s,"state":"%s","evidence":""%s}' \
-    "$1" "$1" "$1" "$1" "$2" "$3" "${4:+,\"sprint\":$4}"
+  printf '{"id":"%s","name":"Story %s","title":"As a user, I want %s","acceptance_criteria":["Given, When, Then"],"test_filter":"FullyQualifiedName~%s","depends_on":%s,"state":"%s","evidence":"","owns":%s%s}' \
+    "$1" "$1" "$1" "$1" "$2" "$3" "${5:-[\"src/$1/\"]}" "${4:+,\"sprint\":$4}"
 }
 
 sandbox=$(mktemp -d)
@@ -81,6 +82,35 @@ expect "add accepts a fragment with only sprints" "Added 0 story(ies) as not_sta
   "$(feature add <<< '{"sprints":[{"sprint":3,"goal":"third"}]}')"
 expect "status counts per sprint" "sprint 1 (first): 1/5 passing" "$(feature status)"
 expect "status lists unmet dependencies" "E [not_started] Story E (waits on B)" "$(feature status)"
+
+cat > feature_list.json << JSON
+{"project_title":"Test","priority_legend":{},"sprints":[{"sprint":1,"goal":"first"}],
+ "shared":["src/Shared/Registry.cs"],
+ "epics":[{"id":"E1","title":"Epic one","sprint":1,"summary":"","stories":[
+   $(story P '[]' not_started '' '["src/Notes/","src/Shared/Registry.cs"]'),
+   $(story Q '[]' not_started '' '["src/Notes/NotesModule.cs"]'),
+   $(story R '[]' not_started '' '["src/Tags/","src/Shared/Registry.cs"]'),
+   $(story S '[]' not_started '' '[]')]}]}
+JSON
+waves_with_owns=$(feature waves)
+expect "waves keep stories that own the same path apart" $'P R\nQ\nS' "$waves_with_owns"
+expect "waves name the shared path" "Q waits for P: both own src/Notes/NotesModule.cs" "$waves_with_owns"
+expect "waves run a story without owns alone" "S runs alone: it has no owns" "$waves_with_owns"
+expect "add rejects owns with wildcards" "X owns must be repo-relative paths without wildcards" \
+  "$(feature add <<< "{\"epics\":[{\"id\":\"E1\",\"stories\":[$(story X '[]' not_started '' '["src/*/X.cs"]')]}]}")"
+expect "add rejects owns outside the repo" "X owns must be repo-relative paths" \
+  "$(feature add <<< "{\"epics\":[{\"id\":\"E1\",\"stories\":[$(story X '[]' not_started '' '["../X.cs"]')]}]}")"
+expect "add accepts shared paths" "Added 0 story(ies) as not_started, and 0 sprint(s)" \
+  "$(feature add <<< '{"shared":["src/Shared/Schema.sql"]}')"
+expect "add appends to shared" '"src/Shared/Schema.sql"' "$(cat feature_list.json)"
+
+git add -A > /dev/null && git -c user.email=t@t -c user.name=t commit -qm base && git branch -M main && git switch -qc feat/p
+feature start P > /dev/null
+mkdir -p src/Notes src/Tags src/Shared && touch src/Notes/Note.cs src/Shared/Registry.cs && echo "- P added notes" > PROGRESS.md
+expect "scope accepts owned, shared and harness files" "P changed only files it owns" "$(feature scope P)"
+touch src/Tags/Tag.cs
+expect "scope names a file outside owns" "src/Tags/Tag.cs" "$(feature scope P)"
+expect "done refuses changes outside owns" "P changed files outside its owns" "$(feature done P)"
 
 if (( failures > 0 )); then
   echo "$failures feature.sh test(s) failed."

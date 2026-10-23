@@ -89,5 +89,9 @@
         }
       ]
     }
+  ],
+  "shared": [
+    "src/CleanTemplate.Infrastructure/Common/Persistence/DatabaseInitializer.cs",
+    "src/CleanTemplate.Infrastructure/DependencyInjection.cs"
   ]
 }
