@@ -83,13 +83,14 @@
           "priority": "P0",
           "estimate": "S",
           "acceptance_criteria": [
-            "Given the solution, When the architecture tests run, Then each project references only the layers AGENTS.md allows."
+            "Given the solution, When the architecture tests run, Then each project references only the layers ARCHITECTURE.md allows."
           ],
           "depends_on": [],
           "tasks": [],
           "test_filter": "FullyQualifiedName~LayerDependencyTests",
           "state": "passing",
-          "evidence": "template baseline"
+          "evidence": "template baseline",
+          "owns": []
         }
       ]
     },
