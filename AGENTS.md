@@ -67,5 +67,5 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 - The hooks in `.codex/hooks.json` must match the hooks in `.claude/settings.json`; `make check` fails at `hooks` when they differ. The hook logic lives only in `scripts/agent/`.
 - Codex reads this file and `.codex/`: trust the project, then approve the session-start and stop hooks with `/hooks`, again after any change to `.codex/hooks.json`.
   Its sandbox blocks the local sockets `dotnet` needs, so `.codex/rules/dotnet.rules` lets `make`, `dotnet build/test/format` and `feature.sh` run outside it, and forbids pushing to `main` and force-pushing.
-- CI runs `make check` on every pull request (`.github/workflows/ci.yml`).
+- CI runs `make check` on every pull request (`.github/workflows/ci.yml`). Branch protection on `main` requires a pull request and that check to pass, so a direct push to `main` is rejected.
 - The Copilot cloud agent prepares its environment with `.github/workflows/copilot-setup-steps.yml`.
