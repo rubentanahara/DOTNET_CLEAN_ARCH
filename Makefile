@@ -5,13 +5,13 @@ endif
 SOLUTION := $(firstword $(wildcard *.slnx))
 API_PROJECT := $(firstword $(wildcard src/*.Api/*.Api.csproj))
 LOGS := .agent
-SMOKE_URL := http://127.0.0.1:5098
+SMOKE_BIND_URL := http://127.0.0.1:0
 SMOKE_TIMEOUT_SECONDS := 30
 
-.PHONY: check setup build test lint format smoke hooks skills packages run clean
+.PHONY: check setup build test lint format smoke hooks skills harness packages run clean
 
-check: hooks skills packages build lint test smoke
-	@echo "CHECK PASSED: hooks, skills, packages, build, format, tests, smoke"
+check: hooks skills harness packages build lint test smoke
+	@echo "CHECK PASSED: hooks, skills, harness, packages, build, format, tests, smoke"
 
 setup:
 	dotnet tool restore
@@ -41,13 +41,14 @@ test: build
 		exit 1; }
 
 smoke: build
-	@dotnet run --project $(API_PROJECT) --no-build --urls $(SMOKE_URL) > $(LOGS)/smoke.log 2>&1 & pid=$$!; \
+	@dotnet run --project $(API_PROJECT) --no-build --urls $(SMOKE_BIND_URL) > $(LOGS)/smoke.log 2>&1 & pid=$$!; \
 	for i in $$(seq $(SMOKE_TIMEOUT_SECONDS)); do \
-		curl -fsS $(SMOKE_URL)/health > /dev/null 2>&1 && { kill $$pid; exit 0; }; \
+		url=$$(grep -oE 'Now listening on: http://[0-9.:]+' $(LOGS)/smoke.log | head -1 | cut -d' ' -f4); \
+		[ -n "$$url" ] && curl -fsS $$url/health > /dev/null 2>&1 && { kill $$pid; exit 0; }; \
 		kill -0 $$pid 2>/dev/null || break; sleep 1; \
 	done; \
 	kill $$pid 2>/dev/null; tail -20 $(LOGS)/smoke.log; \
-	echo "CHECK FAILED at smoke. The API did not answer $(SMOKE_URL)/health. Startup output above, full log in $(LOGS)/smoke.log."; \
+	echo "CHECK FAILED at smoke. The API did not answer /health on the port it logged after 'Now listening on:'. Startup output above, full log in $(LOGS)/smoke.log."; \
 	exit 1
 
 hooks:
@@ -58,6 +59,13 @@ hooks:
 skills:
 	@diff -r .agents/skills .claude/skills > /dev/null || { \
 		echo "CHECK FAILED at skills. .claude/skills differs from .agents/skills. Edit .agents/skills, then run: rm -rf .claude/skills && cp -R .agents/skills .claude/skills"; \
+		exit 1; }
+
+harness:
+	@mkdir -p $(LOGS)
+	@bash scripts/agent/feature.test.sh > $(LOGS)/harness.log 2>&1 || { \
+		cat $(LOGS)/harness.log; \
+		echo "CHECK FAILED at harness. scripts/agent/feature.sh broke a rule its tests pin down. Fix feature.sh, not the test, unless the rule changed."; \
 		exit 1; }
 
 packages:

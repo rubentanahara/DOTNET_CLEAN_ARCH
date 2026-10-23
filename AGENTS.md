@@ -13,7 +13,7 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 
 ## Commands
 - `make setup`: first run. Restores tools and packages and installs the git hooks.
-- `make check`: the only definition of green. Hook config, skill copy and unused package checks, build (warnings are errors), format check, all tests, API smoke test.
+- `make check`: the only definition of green. Hook config, skill copy, harness script tests and unused package checks, build (warnings are errors), format check, all tests, API smoke test.
   It prints `CHECK PASSED`, or `CHECK FAILED at <step>` with the failing lines and the fix to apply.
 - `make format`: fixes formatting and line endings automatically.
 - `make run`: starts the API on http://localhost:5001 (Swagger at `/swagger`, health at `/health`).
@@ -41,13 +41,14 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 - C# files use CRLF and no final newline. Files you create will usually be LF: run `make format` after creating them.
 - StyleCop and Sonar analyzers run in every build.
 
-## Scope: one feature at a time
-- `feature_list.json` is the backlog. Each entry has a behavior, a test filter, and a state: `not_started`, `active`, `blocked`, or `passing`.
-- `scripts/agent/feature.sh add <id> "<behavior>" "<test filter>"` adds an entry.
-- `scripts/agent/feature.sh start <id>` before writing code. It refuses while another feature is active.
-- Touch only what the active feature needs. Note unrelated problems in `PROGRESS.md` instead of fixing them.
-- `scripts/agent/feature.sh done <id>` marks the feature `passing` only after `PROGRESS.md` mentions `<id>`, `make check` passes, and its own tests ran and passed.
+## Scope: one story at a time
+- `feature_list.json` is the backlog: sprints, epics, and stories with acceptance criteria, dependencies, a test filter and a state (`not_started`, `active`, `blocked`, `passing`). Format and commands: `docs/agents/backlog.md`.
+- `scripts/agent/feature.sh show <id>` prints one story; `status` and `waves` show what is open and what is ready. Do not read the whole file.
+- `scripts/agent/feature.sh start <id>` before writing code. It refuses while another story is active or a dependency is not passing.
+- Touch only what the active story needs. Note unrelated problems in `PROGRESS.md` instead of fixing them.
+- `scripts/agent/feature.sh done <id>` marks the story `passing` only after `PROGRESS.md` mentions `<id>`, `make check` passes, and its own tests ran and passed.
 - `scripts/agent/feature.sh block <id> "<reason>"` when something outside the repo stops you.
+- Where the harness is heading (GitHub sync, unattended runs): `docs/agents/harness.md`.
 - Small fixes and questions do not need an entry. The Definition of Done still applies.
 
 ## Definition of Done
@@ -58,13 +59,13 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 - When you finish, a stop hook runs `make check` on any uncommitted change and sends you back with the failing lines if it fails. It also sends you back when files changed during the session but `PROGRESS.md` did not.
 
 ## Session routine
-- Start: the session-start hook injects `PROGRESS.md`, the open features in `feature_list.json` and a fresh `make check` result. If that context is missing, read `PROGRESS.md`, then `feature_list.json`, then run `make check` before editing.
+- Start: the session-start hook injects `PROGRESS.md`, the backlog status with the stories ready to start, and a fresh `make check` result. If that context is missing, read `PROGRESS.md`, then `feature_list.json`, then run `make check` before editing.
 - End: update `PROGRESS.md` (state, decisions with their reasons, next steps), run `make check`, and leave no stray files.
 
 ## Harness wiring
 - Claude Code and Copilot CLI read this file and the session-start and stop hooks in `.claude/settings.json`. Claude Code also takes its permissions from it.
 - Copilot CLI also reads `.github/hooks/session-kickoff.json`, which submits a first prompt so the session-start hook runs at launch.
-- Skills live in `.agents/skills/<name>/SKILL.md`, which Codex and Copilot CLI read, and are copied to `.claude/skills/` for Claude Code. `make check` fails at `skills` when the copies differ. Invoke them with `/feature` and `/ship` in Claude Code and Copilot CLI, and with `$feature` and `$ship` in Codex.
+- Skills live in `.agents/skills/<name>/SKILL.md`, which Codex and Copilot CLI read, and are copied to `.claude/skills/` for Claude Code. `make check` fails at `skills` when the copies differ. Skills: `feature`, `ship`, `grilling` (stress-test a plan), `handoff` (summary for the next session, on the clipboard), `prompt-rewrite`. Invoke them with `/<name>` in Claude Code and Copilot CLI, and with `$<name>` in Codex.
 - The hooks in `.codex/hooks.json` must match the hooks in `.claude/settings.json`; `make check` fails at `hooks` when they differ. The hook logic lives only in `scripts/agent/`.
 - Codex reads this file and `.codex/`: trust the project, then approve the session-start and stop hooks with `/hooks`, again after any change to `.codex/hooks.json`.
   Its sandbox blocks the local sockets `dotnet` needs, so `.codex/rules/dotnet.rules` lets `make`, `dotnet build/test/format` and `feature.sh` run outside it, and forbids pushing to `main` and force-pushing.
