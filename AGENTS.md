@@ -50,7 +50,7 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 - `scripts/agent/feature.sh block <id> "<reason>"` when something outside the repo stops you.
 - `done` also refuses changes outside the story's `owns`. `scripts/agent/feature.sh scope <id>` lists them.
 - `start`, `done` and `block` update the story's GitHub issue and board card. `scripts/agent/github-sync.sh push` syncs the whole backlog. GitHub is a view: change scope in `feature_list.json`, never only on GitHub.
-- Where the harness is heading (GitHub sync, unattended runs): `docs/agents/harness.md`.
+- `scripts/agent/run.sh` works the ready stories unattended: a worktree and named session per story, an independent review, then a pull request. `--dry-run` shows the plan. Design and flags: `docs/agents/harness.md`.
 - Small fixes and questions do not need an entry. The Definition of Done still applies.
 
 ## Definition of Done

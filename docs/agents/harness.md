@@ -48,30 +48,31 @@ Rules for the planned inbound side:
 - The workflows need a `BACKLOG_SYNC_TOKEN` secret (a classic token with `repo` and `project`) and repository auto-merge: the default token cannot reach a user-owned project, and pull requests it opens wait for a person to approve their CI runs.
 - GitHub sends no event when a card moves on a user-owned project, so card moves are polled. Rejected: moving the project to an organization for its webhook, which still needs a server to receive it; and letting GitHub own `state`, which would let anyone drag a story to Done and take state out of pull request diffs.
 
-## 3. The story graph (planned, `scripts/agent/run.sh`)
-Every story runs through the same nodes. Each agent node is a fresh headless session named after the story, so it can be reopened with `--resume` and the checker never sees the maker's reasoning.
+## 3. The story graph (built, `scripts/agent/run.sh`)
+`scripts/agent/run.sh [--cli claude|codex|copilot] [--checker <cli>] [--parallel N] [--merge] [--story <id>] [--dry-run]` takes the first line of `feature.sh waves` and runs each story through the same nodes. Each agent node is a fresh headless session named after the story, so the checker never sees the maker's reasoning, and `claude --resume "<name>"` or `copilot --resume` reopens it.
 
 ```
-claim -> implement -> review -> ship -> merge -> done
-            ^           |                 |
-            +-- fail ---+                 +-- conflict -> resolve -> merge
-            +---------------- CI red -----+
+claim -> implement -> gate -> review -> done -> ship -> [merge, only with --merge]
+            ^           |        |                          |
+            +-- fail ---+--------+     conflict -> resolve -+
 ```
 
-| Node | Kind | Does | Routes to |
+| Node | Kind | Does | On failure |
 |---|---|---|---|
-| claim | script | worktree `.worktrees/<id>` on branch `feat/<id>-<name>`, board In Progress | implement |
-| implement | agent, session `<id> · <name>` | the `feature` skill; may spawn subagents to explore or write tests | review when `feature.sh done` passed; block after 3 attempts |
-| review | agent, fresh and read-only, session `<id> · review`, the `verify` skill | checks the diff against each acceptance criterion with file and line evidence, ends with `VERIFY: PASS` or `VERIFY: FAIL` | ship on pass; implement with the review on fail |
-| ship | script | commit `feat(<id>): <name>`, push, pull request with `Closes #<issue>`, board In Review | merge |
-| merge | script, only with `--merge` | waits for CI, merges `main` into the branch when it is behind, squash merges | done; resolve on conflict; implement on red CI |
-| resolve | agent, session `<id> · merge main` | resolves the conflicts, runs `make check`, pushes | merge |
+| claim | script | worktree `.worktrees/<id>` on branch `feat/<id>-<name>`, from the HEAD the runner started on; `feature.sh start`, which moves the card to In Progress | stop the story |
+| implement | agent, `--cli`, session `<id> · <name>` | the `tdd` skill until `make check` passes, and `<id>` in `PROGRESS.md`; may spawn subagents. It does not run `done`, commit or push. | `feature.sh block` ends the story as blocked |
+| gate | script | `make check`, `feature.sh scope`, the `PROGRESS.md` mention, the story's tests through its `test_filter` (at least one must pass) | back to implement with the failing lines |
+| review | agent, `--checker`, fresh read-only session `<id> · review` | the `verify` skill, reading the test output the gate saved instead of building again; the runner also compares the tree before and after, so a reviewer that edits a file fails | back to implement with the report |
+| done | script | `feature.sh done`, which runs `make check` and the tests again and records the evidence; the card moves to In Review | back to implement |
+| ship | script | commit `feat(<id>): <name>`, push, pull request with the criteria, the review table, the evidence and `Closes #<n>`; the worktree is removed | stop the story, keep the worktree |
+| merge | script, only with `--merge` | waits for CI, updates the branch when it is behind, squash merges, pulls, syncs the board | stop the run |
+| resolve | agent, `--cli`, session `<id> · merge <base>` | merges the base into the branch, fixes the conflicts, `make check`; the runner pushes only if the merge is complete and `make check` passes | stop the run |
 
-- Merging is opt-in. By default a story ends at ship: its pull request waits, green, for a person to merge it. `run.sh --merge` lets the runner merge each pull request itself once CI is green. Branch protection still rejects anything red.
-- Stop conditions are machine checks only: `feature.sh done`, the review verdict, CI, and an attempt cap of 3 per story.
-- A blocked story leaves the run; stories that do not depend on it continue.
-- Checkpoint: `.agent/runs/<run-id>/<id>.json` after every node, so `run.sh --resume <run-id>` continues a crashed run.
-- The maker and the checker can be different CLIs (`--maker claude --checker codex`), which makes the review more independent.
+- Implement, gate and review get 3 attempts per story. After the third failure the story is blocked with the last finding as the reason, and the run goes on with the other stories.
+- Merging is opt-in. By default the run stops once the first wave has open pull requests: stories in the next wave need them merged first. `--merge` merges each one once CI is green, then runs the next wave, until nothing is ready.
+- The worktree is the checkpoint. A story whose worktree still exists is resumed; one whose worktree holds a blocked state is skipped and named; one with an open pull request is skipped.
+- Logs for every node are in `.agent/runs/<id>/` of the main checkout: `implement-<n>.log`, `check-<n>.log`, `review-<n>.md`, `resolve.log` and `result`.
+- The runner needs a clean tree. `--merge` also needs the default branch checked out.
 
 ## 4. Parallel runs (waves built, runner planned)
 - Two stories can run in parallel only when neither depends on the other, they do not change the same files, and neither changes a contract the other relies on.
@@ -83,16 +84,16 @@ claim -> implement -> review -> ship -> merge -> done
 - Every slice still edits the same lines of `DatabaseInitializer.cs` and `DependencyInjection.cs`, so they belong in `shared` and conflict on merge. Registering repositories and schema per feature removes that; it is a template change that needs its own decision record.
 - Your review bandwidth is the ceiling, not the agent count. Default to `N=1`; raise it for large backlogs of independent stories.
 
-## 5. CLI adapters (planned, `scripts/agent/cli.sh`)
-One function per CLI keeps the graph CLI-agnostic. Adding Cursor or Gemini is one more function.
+## 5. CLI adapters (built, `run_session` in `scripts/agent/run.sh`)
+One case per CLI keeps the graph CLI-agnostic. Adding Cursor or Gemini is two more cases.
 
 | | Writable node | Read-only node | Session name |
 |---|---|---|---|
-| Claude Code | `claude -p -n <name>` | `--permission-mode plan` | `-n` |
-| Codex | `codex exec` | `--sandbox read-only -o <file>` | none at launch; the prompt starts with the name |
-| Copilot CLI | `copilot -p -n <name> --no-ask-user` | only read and `git diff` tools allowed | `-n` |
+| Claude Code | `claude -p --permission-mode bypassPermissions`, `git commit` and `git push` denied | `claude -p` with `Edit`, `Write`, `make format` and the state-changing `feature.sh` commands denied | `-n` |
+| Codex | `codex exec --dangerously-bypass-approvals-and-sandbox` | `codex exec --sandbox read-only -o <file>` | none at launch; the prompt starts with the name |
+| Copilot CLI | `copilot -p --allow-all --no-ask-user`, `git commit` and `git push` denied | `copilot -p --deny-tool write` with only read-only `git` and `feature.sh show/scope` allowed | `-n` |
 
-Unattended writable nodes need each CLI's full-permission flag. They run only inside a story worktree, and GitHub branch protection still blocks pushes to `main`.
+Writable nodes need each CLI's full-permission flag to run unattended. They run only inside a story worktree, the runner itself commits and pushes, and branch protection still rejects pushes to `main`. Codex cannot deny single commands in that mode, so for Codex the prompt is the only thing that keeps it from committing or pushing.
 
 ## 6. Roadmap
 1. **Backlog primitive (built):** epic and story format, `feature.sh add/show/status/waves`, dependency gate on `start`, harness tests in `make check`, a free smoke-test port.
@@ -100,5 +101,5 @@ Unattended writable nodes need each CLI's full-permission flag. They run only in
 3. **Parallel safety (built):** `owns`, `shared`, the file-overlap check in `waves`, the scope check in `done`.
 4. **GitHub to repo (planned):** the Action on push to `main`, the `issues` Action with sync pull requests, the card watcher, `feature.sh unblock`. Needs `BACKLOG_SYNC_TOKEN` and repository auto-merge.
 5. **Skills (built):** `tdd`, `verify`, `prd`, `backlog`.
-6. **Runner (planned):** the story graph, sequential then parallel, `--merge` off by default, the three CLI adapters.
+6. **Runner (built):** the story graph, sequential and `--parallel N` in tmux panes, `--merge` off by default, the three CLI adapters. First real run: F05.
 7. **Release and deploy (planned):** release-please, an image on GHCR, staging on every merge, production behind an approval. Blocked on a deploy target and a real database: today's in-memory SQLite and `DROP TABLE` at startup lose all data on restart.
