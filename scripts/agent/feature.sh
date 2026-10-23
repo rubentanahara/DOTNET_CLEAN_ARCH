@@ -14,7 +14,8 @@ readonly USAGE='Usage:
   scripts/agent/feature.sh done <id>
   scripts/agent/feature.sh block <id> "<reason>"
   scripts/agent/feature.sh unblock <id>             make a blocked story startable again
-  scripts/agent/feature.sh scope <id>               files changed on this branch that the story does not own'
+  scripts/agent/feature.sh scope <id>               files changed on this branch that the story does not own
+  scripts/agent/feature.sh reset                    remove every sprint, epic and story; keep project_title, priority_legend and shared'
 
 readonly STORIES_JQ='def fail(errors): (errors | join("\n")) + "\n" | halt_error(1);
 def stories: [.epics[] | .sprint as $sprint | .id as $epic | .stories[]
@@ -240,6 +241,15 @@ unblock_story() {
   set_state "$1" not_started ""
 }
 
+reset_backlog() {
+  local active
+  active=$(jq -r "$STORIES_JQ"' [stories[] | select(.state == "active") | .id] | join(", ")' "$FEATURES_FILE")
+  [[ -z "$active" ]] || fail "$active is active. Finish it with done or park it with block before the reset."
+  write_features '.sprints = [] | .epics = []'
+  echo "Backlog reset: no sprints, epics or stories left. project_title, priority_legend and shared are kept."
+  echo "GitHub issues match stories by id, so new stories would reuse the old issues. Before the next push, list them with $GITHUB_SYNC_SCRIPT reset and delete them with $GITHUB_SYNC_SCRIPT reset --yes in a terminal."
+}
+
 cd "$(git rev-parse --show-toplevel)"
 command -v jq > /dev/null || fail "jq is required. Install it (brew install jq, or winget install jqlang.jq) and retry."
 
@@ -253,5 +263,6 @@ case "${1:-} $#" in
   "block 3") block_story "$2" "$3" ;;
   "unblock 2") unblock_story "$2" ;;
   "scope 2") check_scope "$2" ;;
+  "reset 1") reset_backlog ;;
   *) fail "$USAGE" ;;
 esac

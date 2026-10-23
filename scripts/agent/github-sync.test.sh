@@ -84,6 +84,36 @@ expect "the form fragment keeps owns without backticks" '"owns":["src/Three/"]' 
 expect "the fragment is accepted by feature.sh add" "Added 1 story(ies) as not_started: F03" "$(bash scripts/agent/feature.sh add <<< "$fragment")"
 expect "a form naming no epic is refused" "New epic" "$(bash scripts/agent/feature.sh add <<< "$(form_fragment F04 "${form/E1/NOPE}")" 2>&1)"
 
+gh() {
+  echo "gh $*" >> gh-calls.log
+  case "$1 $2" in
+    "repo view") echo '{"nameWithOwner":"me/repo","owner":{"login":"me"},"defaultBranchRef":{"name":"main"}}' ;;
+    "api user") echo me ;;
+    "issue list") echo '[{"number":7,"title":"E1 · Epic","labels":[]},{"number":8,"title":"F01 · First","labels":[{"name":"story"}]},
+      {"number":30,"title":"Story: proposed on the form","labels":[{"name":"story"}]},{"number":40,"title":"Crash on startup","labels":[{"name":"bug"}]}]' ;;
+    "project list") echo '{"projects":[{"number":14,"title":"Test","closed":false},{"number":3,"title":"Other","closed":false}]}' ;;
+  esac
+}
+deletions() {
+  grep -E '^gh (issue|project) delete' gh-calls.log 2> /dev/null | tr '\n' ';'
+}
+: > gh-calls.log
+plan=$(print_reset_plan)
+expect "the reset plan lists the epic and story issues" "#7 E1 · Epic" "$plan"
+expect "the reset plan lists story-form issues" "#30 Story: proposed on the form" "$plan"
+expect "the reset plan lists the project" "project #14 Test" "$plan"
+[[ "$plan" != *"#40"* ]] || { echo "FAIL: the reset plan lists an issue the harness does not own"; failures=$((failures + 1)); }
+expect "the reset plan deletes nothing" "" "$(deletions)"
+expect "the reset plan says how to delete" "github-sync.sh reset --yes" "$plan"
+: > gh-calls.log
+expect "reset --yes without a terminal is refused" "a person confirms it at a terminal" "$( (delete_github_backlog < /dev/null) 2>&1)"
+expect "a refused reset --yes deletes nothing" "" "$(deletions)"
+confirm_reset() { :; }
+delete_github_backlog > /dev/null
+expect "reset --yes deletes the harness issues and the project" \
+  "gh issue delete 7 --repo me/repo --yes;gh issue delete 8 --repo me/repo --yes;gh issue delete 30 --repo me/repo --yes;gh project delete 14 --owner @me;" "$(deletions)"
+unset -f gh
+
 if (( failures > 0 )); then
   echo "$failures github-sync test(s) failed."
   exit 1

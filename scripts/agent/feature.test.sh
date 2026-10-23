@@ -117,6 +117,18 @@ touch src/Tags/Tag.cs
 expect "scope names a file outside owns" "src/Tags/Tag.cs" "$(feature scope P)"
 expect "done refuses changes outside owns" "P changed files outside its owns" "$(feature done P)"
 
+before=$(cat feature_list.json)
+expect "reset refuses while a story is active" "P is active" "$(feature reset)"
+expect_unchanged "a refused reset" "$before"
+feature block P "parked for the reset test" > /dev/null
+kept=$(jq -c '[.project_title, .priority_legend, .shared]' feature_list.json)
+expect "reset reports the empty backlog" "Backlog reset" "$(feature reset)"
+expect "reset removes every epic and sprint" '[[],[]]' "$(jq -c '[.epics, .sprints]' feature_list.json)"
+expect "reset keeps the project title, legend and shared files" "$kept" "$(jq -c '[.project_title, .priority_legend, .shared]' feature_list.json)"
+expect "status of an empty backlog prints nothing" "empty" "$([[ -z "$(feature status)" ]] && echo empty)"
+expect "add works on an empty backlog" "Added 1 story(ies) as not_started: F01" \
+  "$(feature add <<< "{\"epics\":[{\"id\":\"E9\",\"title\":\"New\",\"sprint\":1,\"stories\":[$(story F01 '[]' not_started)]}],\"sprints\":[{\"sprint\":1,\"goal\":\"again\"}]}")"
+
 if (( failures > 0 )); then
   echo "$failures feature.sh test(s) failed."
   exit 1

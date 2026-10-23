@@ -9,6 +9,7 @@ Each guardrail names what enforces it in each CLI, why it exists, and when it ca
 | Session-start context: `make check` result, backlog, `PROGRESS.md` | `.claude/settings.json` | `.codex/hooks.json` | `.claude/settings.json`, plus the first prompt from `.github/hooks/session-kickoff.json` | A session starts from the real state, not from memory | never |
 | Stop is refused while `make check` fails (3 attempts, then the agent must report the failure) | `.claude/settings.json` | `.codex/hooks.json` | `.claude/settings.json` | "Should work" is not done | never |
 | Stop is refused while files changed but `PROGRESS.md` did not | same | same | same | The next session needs to know what changed and why | never |
+| Deleting the backlog's GitHub issues and project needs a person | `github-sync.sh reset --yes` refuses without a terminal and asks for the repo name | same | same | Deleted issues cannot be restored | never |
 | Conventional Commits, no secrets in commits | `.husky/commit-msg`, `.husky/pre-commit` (gitleaks); git runs them for every CLI and for people | same | same | Readable history; secrets never reach the remote | never |
 | No push to `main`, no push that drops commits already pushed | `.husky/pre-push`; git runs it for every CLI and for people, also on `--dry-run` | same | same | `main` changes only through a pull request, and pushed history stays | never |
 | Analyzers, format, layer rules, tests, smoke test | `make check`, required by CI on every pull request | same | same | One definition of green | never |
