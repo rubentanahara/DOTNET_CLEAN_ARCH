@@ -153,8 +153,7 @@
           "estimate": "",
           "acceptance_criteria": [
             "Given the repo, When I open requests/Health/Health.http, Then it declares @host = http://localhost:5001 and holds a GET request for {{host}}/health.",
-            "Given the repo, When the tests run, Then a test fails if requests/Health/Health.http lacks that request.",
-            "This is a test"
+            "Given the repo, When the tests run, Then a test fails if requests/Health/Health.http lacks that request."
           ],
           "depends_on": [],
           "tasks": [],
