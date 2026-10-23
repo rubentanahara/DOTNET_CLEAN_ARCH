@@ -63,8 +63,8 @@ claim -> implement -> gate -> review -> done -> ship -> [merge, unless --no-merg
 | Node | Kind | Does | On failure |
 |---|---|---|---|
 | claim | script | worktree `.worktrees/<id>` on branch `feat/<id>-<name>`, from the HEAD the runner started on; `feature.sh start`, which moves the card to In Progress | stop the story |
-| implement | agent, `--cli`, session `<id> · <name>` | the `tdd` skill until `make check` passes, and `<id>` in `PROGRESS.md`; may spawn subagents. It does not run `done`, commit or push. | `feature.sh block` ends the story as blocked |
-| gate | script | `make check`, `feature.sh scope`, the `PROGRESS.md` mention, the story's tests through its `test_filter` (at least one must pass) | back to implement with the failing lines |
+| implement | agent, `--cli`, session `<id> · <name>` | the `tdd` skill until `make check` passes, and `<id>` in `PROGRESS.md`; may spawn subagents. It commits its own work in two steps (tests first, see the gate) and does not run `done` or push. | `feature.sh block` ends the story as blocked |
+| gate | script | `make check`, `feature.sh scope`, the `PROGRESS.md` mention, the TDD commit order (the first commit changes only files under `tests/`, and the story's tests fail on it, run in a throwaway worktree), the story's tests through its `test_filter` (at least one must pass) | back to implement with the failing lines |
 | review | agent, `--checker`, fresh read-only session `<id> · review` | the `verify` skill, reading the test output the gate saved instead of building again; the runner also compares the tree before and after, so a reviewer that edits a file fails | back to implement with the report |
 | done | script | `feature.sh done`, which runs `make check` and the tests again and records the evidence; the card moves to In Review | back to implement |
 | ship | script | commit `feat(<id>): <name>`, push, pull request with the criteria, the review table, the evidence and `Closes #<n>`; the worktree is removed | stop the story, keep the worktree |
@@ -92,9 +92,9 @@ One case per CLI keeps the graph CLI-agnostic. Adding Cursor or Gemini is two mo
 
 | | Writable node | Read-only node | Session name |
 |---|---|---|---|
-| Claude Code | `claude -p --permission-mode bypassPermissions`, `git commit` and `git push` denied | `claude -p` with `Edit`, `Write`, `make format` and the state-changing `feature.sh` commands denied | `-n` |
+| Claude Code | `claude -p --permission-mode bypassPermissions`, `git push` denied | `claude -p` with `Edit`, `Write`, `make format` and the state-changing `feature.sh` commands denied | `-n` |
 | Codex | `codex exec --dangerously-bypass-approvals-and-sandbox` | `codex exec --sandbox read-only -o <file>` | none at launch; the prompt starts with the name |
-| Copilot CLI | `copilot -p --allow-all --no-ask-user`, `git commit` and `git push` denied | `copilot -p --deny-tool write` with only read-only `git` and `feature.sh show/scope` allowed | `-n` |
+| Copilot CLI | `copilot -p --allow-all --no-ask-user`, `git push` denied | `copilot -p --deny-tool write` with only read-only `git` and `feature.sh show/scope` allowed | `-n` |
 
 Every node also takes a model: `claude --model`, `codex exec -m`, `copilot --model`. Defaults are in `run.sh`: `claude-sonnet-5-5`, `gpt-5.6-terra` (listed by `codex debug models`) and `auto`. `--model` overrides the implementer's and `--checker-model` the reviewer's.
 

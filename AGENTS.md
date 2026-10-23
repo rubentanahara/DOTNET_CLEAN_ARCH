@@ -55,7 +55,7 @@ The database is SQLite in memory, so nothing external is needed to build, test, 
 
 ## Definition of Done
 - `make check` prints `CHECK PASSED`. Quote that line in your final message. "Should work" is not done.
-- New behavior has a test that fails without the change.
+- New behavior has a test that fails without the change. For a story the runner builds, the first commit holds only the story's tests (files under `tests/`) and they fail on it; the gate checks this.
 - Feature work: `scripts/agent/feature.sh done <id>` succeeded.
 - `PROGRESS.md` says what changed, why, and what comes next.
 - When you finish, a stop hook runs `make check` on any uncommitted change and sends you back with the failing lines if it fails. It also sends you back when files changed during the session but `PROGRESS.md` did not.

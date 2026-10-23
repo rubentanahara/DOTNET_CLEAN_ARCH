@@ -27,6 +27,7 @@ readonly SYNC=scripts/agent/github-sync.sh
 readonly FINGERPRINT=scripts/agent/tree-fingerprint.sh
 readonly POLL_SECONDS=15
 readonly CHECKS_APPEAR_ROUNDS=20
+readonly TEST_PATH_PREFIX=tests/
 readonly FEEDBACK_LINES=60
 readonly SLUG_MAX_LENGTH=40
 readonly HUSKY_RUNTIME_DIR=.husky/_
@@ -243,10 +244,10 @@ implement_story() {
   local id=$1 dir=$2 attempt=$3 feedback=$4 prompt
   prompt="Session \"$(session_name "$id")\". You are running unattended in a worktree on branch $(branch_name "$id"). Story $id is already active: scripts/agent/feature.sh start ran.
 1. Read the story with scripts/agent/feature.sh show $id. If it has a prd field, read only that section of the PRD.
-2. Build it with the tdd skill, one acceptance criterion at a time, following docs/agents/add-feature.md. Change only files in its owns and the shared files.
+2. Build it with the tdd skill, one acceptance criterion at a time, following docs/agents/add-feature.md. Change only files in its owns and the shared files. The runner checks the commit order: make format, then make your FIRST commit hold only files under $TEST_PATH_PREFIX, with the story's tests, and the story's tests must fail on it. Name it test($id): <what it proves>. Then commit the code as feat($id): <what it does>.
 3. Run make format, then make check until it prints CHECK PASSED.
 4. Mention $id in PROGRESS.md: what changed, why, and what comes next.
-The runner does the rest: the independent review, feature.sh done, the commit, the push and the pull request. Do not run feature.sh done, do not commit, and do not push.
+The runner does the rest: the independent review, feature.sh done, the commit, the push and the pull request. Do not run feature.sh done and do not push. Commit only as step 2 says.
 You may hand exploration or test drafting to subagents. If something outside the repo stops you, run scripts/agent/feature.sh block $id \"<reason>\" and stop."
   if [[ -n "$feedback" ]]; then
     prompt+=$'\n\n'"This is attempt $attempt of $MAX_ATTEMPTS. The previous attempt did not pass. Fix these findings first:"$'\n'"$feedback"
@@ -271,12 +272,47 @@ gate_story() {
     echo "PROGRESS.md does not mention $id. Add what $id changed, why, and what comes next."
     return 1
   fi
+  tdd_commit_order "$id" "$dir" || return 1
   if ! (cd "$dir" && dotnet test "$(ls ./*.slnx | head -n 1)" --no-build --filter "$(story_field "$id" test_filter)" > "$dir/$RUNNER_DIR/tests.log" 2>&1); then
     echo "The story's tests failed:"
     tail -n "$FEEDBACK_LINES" "$dir/$RUNNER_DIR/tests.log"
     return 1
   fi
   grep -qE 'Passed: +[1-9]' "$dir/$RUNNER_DIR/tests.log" || { echo "The test filter $(story_field "$id" test_filter) matched no tests. Write the story's tests in that class."; return 1; }
+}
+
+tdd_commit_order() {
+  local id=$1 dir=$2 base first
+  base=$(git -C "$dir" merge-base HEAD "$BASE_BRANCH")
+  first=$(git -C "$dir" log --reverse --format=%H "$base..HEAD" | sed -n 1p)
+  if [[ -z "$first" ]]; then
+    echo "TDD rule: there is no commit. Make the first commit hold only the story's tests under $TEST_PATH_PREFIX and fail, then commit the code."
+    return 1
+  fi
+  if ! first_commit_is_tests_only "$dir" "$first"; then
+    echo "TDD rule: the first commit must change only files under $TEST_PATH_PREFIX. Undo the history with git reset --soft $base, then commit the story's tests alone as test($id): ..., run make format, and commit the code after it."
+    return 1
+  fi
+  first_commit_fails_tests "$id" "$dir" "$first"
+}
+
+first_commit_is_tests_only() {
+  local files
+  files=$(git -C "$1" diff-tree --no-commit-id --name-only -r "$2")
+  [[ -n "$files" ]] && ! grep -qv "^$TEST_PATH_PREFIX" <<< "$files"
+}
+
+first_commit_fails_tests() {
+  local id=$1 dir=$2 sha=$3 red passed=false
+  red="$(story_log_dir "$id")/red"
+  rm -rf "$red"
+  git -C "$dir" worktree add -q --detach "$red" "$sha" || return 1
+  (cd "$red" && dotnet test "$(ls ./*.slnx | head -n 1)" --filter "$(story_field "$id" test_filter)" > "$(story_log_dir "$id")/red.log" 2>&1) && passed=true
+  git -C "$dir" worktree remove --force "$red"
+  if $passed; then
+    echo "TDD rule: the story's tests pass on the first commit, so they prove nothing it added. Make the first commit's tests fail, then add the code in a later commit. Log: $(story_log_dir "$id")/red.log"
+    return 1
+  fi
 }
 
 review_story() {
@@ -307,7 +343,7 @@ ship_story() {
   subject="feat($id): $(lowercase_first "$(story_field "$id" name)")"
   (
     cd "$dir" || exit 1
-    git add -A && git commit -q -m "$subject" -m "$(story_field "$id" title)" && git push -q -u origin "$branch"
+    git add -A && { git diff --cached --quiet || git commit -q -m "$subject" -m "$(story_field "$id" title)"; } && git push -q -u origin "$branch"
   ) || return 1
   issue=$(bash "$SYNC" issue "$id" 2> /dev/null || true)
   body=$(pull_request_body "$id" "$dir" "$attempts" "$issue")
@@ -395,7 +431,7 @@ run_session() {
   local cli=$1 model=$2 mode=$3 name=$4 prompt=$5 out=$6
   case "$cli:$mode" in
     claude:write)
-      claude -p "$prompt" --model "$model" -n "$name" --permission-mode bypassPermissions --disallowedTools "Bash(git push *)" "Bash(git commit *)" < /dev/null 2>&1 | tee "$out" ;;
+      claude -p "$prompt" --model "$model" -n "$name" --permission-mode bypassPermissions --disallowedTools "Bash(git push *)" < /dev/null 2>&1 | tee "$out" ;;
     claude:read)
       claude -p "$prompt" --model "$model" -n "$name" --disallowedTools Edit Write NotebookEdit "Bash(make format)" "Bash(dotnet format *)" \
         "Bash(scripts/agent/feature.sh start *)" "Bash(scripts/agent/feature.sh done *)" "Bash(scripts/agent/feature.sh block *)" \
@@ -406,7 +442,7 @@ run_session() {
       codex exec -m "$model" --sandbox read-only -o "$out" "$prompt" < /dev/null > "$out.log" 2>&1
       tail -n 20 "$out" ;;
     copilot:write)
-      copilot -p "$prompt" --model "$model" -n "$name" --allow-all --no-ask-user --deny-tool 'shell(git push)' --deny-tool 'shell(git commit)' 2>&1 | tee "$out" ;;
+      copilot -p "$prompt" --model "$model" -n "$name" --allow-all --no-ask-user --deny-tool 'shell(git push)' 2>&1 | tee "$out" ;;
     copilot:read)
       copilot -p "$prompt" --model "$model" -n "$name" -s --no-ask-user --deny-tool write \
         --allow-tool 'shell(git diff:*)' --allow-tool 'shell(git status:*)' --allow-tool 'shell(git log:*)' --allow-tool 'shell(git show:*)' \

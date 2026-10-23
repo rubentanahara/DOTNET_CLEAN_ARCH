@@ -50,6 +50,25 @@ expect "result_of reads a matching result" "https://example/pull/1" "$(result_of
 expect "result_of refuses another outcome" "" "$(result_of F05 blocked)"
 expect "a story without a worktree has no worktree state" "" "$(worktree_state F05)"
 
+tdd_repo=$(mktemp -d)
+git -C "$tdd_repo" init -q -b main
+git -C "$tdd_repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m base
+git -C "$tdd_repo" switch -q -c feat/x
+BASE_BRANCH=main
+no_commit_message=$(tdd_commit_order F05 "$tdd_repo")
+expect "the gate names the missing commit" "TDD rule: there is no commit." "${no_commit_message%% Make*}"
+mkdir -p "$tdd_repo/tests" "$tdd_repo/src"
+touch "$tdd_repo/tests/XTests.cs"
+git -C "$tdd_repo" add -A && git -C "$tdd_repo" -c user.email=t@t -c user.name=t commit -q -m "test(F01): proves x"
+touch "$tdd_repo/src/X.cs"
+git -C "$tdd_repo" add -A && git -C "$tdd_repo" -c user.email=t@t -c user.name=t commit -q -m "feat(F01): x"
+tdd_first=$(git -C "$tdd_repo" log --reverse --format=%H main..HEAD | sed -n 1p)
+first_commit_is_tests_only "$tdd_repo" "$tdd_first" && result=ok || result=refused
+expect "a first commit with only tests is accepted" "ok" "$result"
+first_commit_is_tests_only "$tdd_repo" "$(git -C "$tdd_repo" rev-parse HEAD)" && result=ok || result=refused
+expect "a commit with code is refused as the first" "refused" "$result"
+rm -rf "$tdd_repo"
+
 if (( failures > 0 )); then
   echo "$failures run.sh test(s) failed."
   exit 1
