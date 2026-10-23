@@ -11,6 +11,10 @@
       "sprint": 1,
       "goal": "The template ships working reference slices.",
       "outcome": "make check passes and every slice has tests an agent can copy."
+    },
+    {
+      "sprint": 2,
+      "goal": "Deployable template."
     }
   ],
   "epics": [
@@ -86,6 +90,37 @@
           "test_filter": "FullyQualifiedName~LayerDependencyTests",
           "state": "passing",
           "evidence": "template baseline"
+        }
+      ]
+    },
+    {
+      "id": "EPIC-OPERATIONS",
+      "title": "Operations",
+      "sprint": 2,
+      "summary": "What a deployed copy of the template needs to be checked and run.",
+      "stories": [
+        {
+          "id": "F05",
+          "name": "Version endpoint",
+          "title": "As an operator, I want GET /version to return the running build's version so that a deploy can be checked against the release it should be.",
+          "area": "backend",
+          "priority": "P1",
+          "estimate": "XS",
+          "acceptance_criteria": [
+            "Given the API is running, When I GET /version without credentials, Then it returns 200 with a JSON body whose version field equals the informational version of the CleanTemplate.Api assembly.",
+            "Given the API is running, When I GET /version, Then the response has the application/json content type."
+          ],
+          "depends_on": [],
+          "tasks": [],
+          "owns": [
+            "src/CleanTemplate.Api/Features/Version/",
+            "src/CleanTemplate.Contracts/Version/",
+            "tests/CleanTemplate.Api.IntegrationTests/VersionEndpointTests.cs"
+          ],
+          "prd": "",
+          "test_filter": "FullyQualifiedName~VersionEndpointTests",
+          "state": "not_started",
+          "evidence": ""
         }
       ]
     }
