@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-readonly USAGE='Usage: scripts/agent/run.sh [--cli claude|codex|copilot] [--checker claude|codex|copilot] [--model <m>] [--checker-model <m>] [--parallel N] [--merge] [--story <id>] [--dry-run]
+readonly USAGE='Usage: scripts/agent/run.sh [--cli claude|codex|copilot] [--checker claude|codex|copilot] [--model <m>] [--checker-model <m>] [--parallel N] [--no-merge] [--story <id>] [--dry-run]
 
 Runs the first wave of scripts/agent/feature.sh waves. Each story gets its own worktree and branch and goes through:
 implement (a session named "<id> · <name>"), make check, scope and test gate, an independent read-only review
@@ -12,7 +12,7 @@ implement (a session named "<id> · <name>"), make check, scope and test gate, a
   --model     model of the implementer. Default: claude-sonnet-5-5, auto (copilot) or gpt-5.6-terra (codex).
   --checker-model  model of the reviewer. Default: the default of the checker CLI.
   --parallel  how many stories of a wave run at once, one tmux pane each. Default: 1.
-  --merge     merge each pull request once CI is green, then run the next wave. Default: stop at open pull requests.
+  --no-merge  stop at open pull requests. Default: merge each pull request once CI is green, then run the next wave.
   --story     run only this story.
   --dry-run   print what would run, and start nothing.'
 readonly MAX_ATTEMPTS=3
@@ -38,7 +38,7 @@ main() {
   [[ -n "$BASE_BRANCH" ]] || fail "Check out a branch first, normally main: stories branch from it and their pull requests target it."
   [[ -z "$(git status --porcelain)" ]] || fail "The working tree is not clean. Commit or stash first: stories branch from HEAD."
   if $MERGE && [[ "$BASE_BRANCH" != "$(default_branch)" ]]; then
-    fail "--merge needs the default branch ($(default_branch)) checked out, because it pulls each merge before the next wave."
+    fail "Merging needs the default branch ($(default_branch)) checked out, because it pulls each merge before the next wave. Use --no-merge to run from another branch."
   fi
   mkdir -p "$RUNS_DIR"
   if [[ -n "$ONLY_STORY" ]] && ! $DRY_RUN; then
@@ -49,7 +49,7 @@ main() {
 }
 
 parse_arguments() {
-  CLI=claude CHECKER="" MODEL="" CHECKER_MODEL="" PARALLEL=1 MERGE=false ONLY_STORY="" DRY_RUN=false
+  CLI=claude CHECKER="" MODEL="" CHECKER_MODEL="" PARALLEL=1 MERGE=true ONLY_STORY="" DRY_RUN=false
   while (( $# > 0 )); do
     case "$1" in
       --cli) CLI=${2:?$USAGE}; shift 2 ;;
@@ -57,7 +57,7 @@ parse_arguments() {
       --model) MODEL=${2:?$USAGE}; shift 2 ;;
       --checker-model) CHECKER_MODEL=${2:?$USAGE}; shift 2 ;;
       --parallel) PARALLEL=${2:?$USAGE}; shift 2 ;;
-      --merge) MERGE=true; shift ;;
+      --no-merge) MERGE=false; shift ;;
       --story) ONLY_STORY=${2:?$USAGE}; shift 2 ;;
       --dry-run) DRY_RUN=true; shift ;;
       *) fail "$USAGE" ;;
