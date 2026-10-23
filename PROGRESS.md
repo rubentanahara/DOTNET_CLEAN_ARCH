@@ -16,6 +16,8 @@
   - Adds `requests/Version/Version.http` (`@host = http://localhost:5001`, `GET {{host}}/version`), the file F05 left out.
   - `tests/CleanTemplate.Api.IntegrationTests/VersionRequestFileTests.cs` finds the repo root by `global.json` and fails when the file lacks the host or the request. Both tests failed before the file existed.
 
+- `rename.sh` and `rename.ps1` now end by offering (interactive only, `gh` installed) to log in if needed, show the GitHub account, commit and run the `gh repo create --source=. --push` wizard. Otherwise they print the manual next step. Not run end to end, since the scripts delete `.git`.
+
 ## Known issues
 - Two sessions in one checkout can still blame each other: the stop gate sees a changed tree and cannot tell which session changed it. The blamed session is blocked at most 3 times, then told to say so and stop. Run concurrent sessions in separate worktrees (`claude -w`, Copilot `/worktree`, `codex fork --worktree`).
 

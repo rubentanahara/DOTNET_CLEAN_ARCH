@@ -43,4 +43,28 @@ rm -rf .git
 git init -q -b main
 
 echo "Renamed $OLD_NAME to $NEW_NAME and started a fresh git repository."
-echo "Next: git add -A && git commit -m 'chore: initial commit' && git remote add origin <your-repo-url>"
+
+manual_next() {
+  echo "Next: git add -A && git commit -m 'chore: initial commit' && git remote add origin <your-repo-url>"
+}
+
+if [[ ! -t 0 ]] || ! command -v gh > /dev/null 2>&1; then
+  manual_next
+  exit 0
+fi
+
+read -r -p "Create the initial commit and push to GitHub with the gh CLI? [y/N] " answer
+if [[ ! "$answer" =~ ^[Yy]$ ]]; then
+  manual_next
+  exit 0
+fi
+
+if ! gh auth status > /dev/null 2>&1; then
+  gh auth login
+fi
+
+echo "GitHub account: $(gh api user --jq .login)"
+
+git add -A
+git commit -q -m "chore: initial commit"
+gh repo create --source=. --remote=origin --push
