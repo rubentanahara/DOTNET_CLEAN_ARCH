@@ -119,8 +119,8 @@
           ],
           "prd": "",
           "test_filter": "FullyQualifiedName~VersionEndpointTests",
-          "state": "not_started",
-          "evidence": ""
+          "state": "passing",
+          "evidence": "2 tests passed on 7594026 plus uncommitted changes, 2026-10-23T14:22Z"
         }
       ]
     }
