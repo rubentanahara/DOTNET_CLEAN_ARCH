@@ -60,4 +60,26 @@ Remove-Item .git -Recurse -Force
 git init -q -b main
 
 Write-Host "Renamed $OldName to $NewName and started a fresh git repository."
-Write-Host "Next: git add -A; git commit -m 'chore: initial commit'; git remote add origin <your-repo-url>"
+$manualNext = "Next: git add -A; git commit -m 'chore: initial commit'; git remote add origin <your-repo-url>"
+
+if ([Console]::IsInputRedirected -or -not (Get-Command gh -ErrorAction SilentlyContinue)) {
+    Write-Host $manualNext
+    exit 0
+}
+
+$answer = Read-Host 'Create the initial commit and push to GitHub with the gh CLI? [y/N]'
+if ($answer -notmatch '^[Yy]$') {
+    Write-Host $manualNext
+    exit 0
+}
+
+gh auth status *> $null
+if ($LASTEXITCODE -ne 0) {
+    gh auth login
+}
+
+Write-Host "GitHub account: $(gh api user --jq .login)"
+
+git add -A
+git commit -q -m 'chore: initial commit'
+gh repo create --source=. --remote=origin --push
