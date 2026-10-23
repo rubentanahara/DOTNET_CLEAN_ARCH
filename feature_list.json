@@ -141,8 +141,8 @@
           ],
           "prd": "",
           "test_filter": "FullyQualifiedName~VersionRequestFileTests",
-          "state": "not_started",
-          "evidence": ""
+          "state": "passing",
+          "evidence": "2 tests passed on a00a121 plus uncommitted changes, 2026-10-23T14:53Z"
         },
         {
           "id": "F07",

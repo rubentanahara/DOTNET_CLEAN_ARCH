@@ -12,6 +12,10 @@
   - Files: `src/CleanTemplate.Api/Features/Version/VersionModule.cs`, `src/CleanTemplate.Contracts/Version/VersionResponse.cs`, `tests/CleanTemplate.Api.IntegrationTests/VersionEndpointTests.cs` (one test per acceptance criterion; both failed before the module existed).
   - No `requests/Version/Version.http`: `docs/agents/add-feature.md` step 7 asks for one, but `requests/` is outside F05's `owns`. Add it in a follow-up or widen `owns`.
 
+- F06 (Version request file), branch `feat/f06-version-request-file`: built, `make check` passes. Waiting for the runner's review and pull request.
+  - Adds `requests/Version/Version.http` (`@host = http://localhost:5001`, `GET {{host}}/version`), the file F05 left out.
+  - `tests/CleanTemplate.Api.IntegrationTests/VersionRequestFileTests.cs` finds the repo root by `global.json` and fails when the file lacks the host or the request. Both tests failed before the file existed.
+
 ## Known issues
 - Two sessions in one checkout can still blame each other: the stop gate sees a changed tree and cannot tell which session changed it. The blamed session is blocked at most 3 times, then told to say so and stop. Run concurrent sessions in separate worktrees (`claude -w`, Copilot `/worktree`, `codex fork --worktree`).
 
