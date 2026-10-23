@@ -8,10 +8,10 @@ LOGS := .agent
 SMOKE_BIND_URL := http://127.0.0.1:0
 SMOKE_TIMEOUT_SECONDS := 30
 
-.PHONY: check setup build test lint format smoke hooks skills harness packages run clean
+.PHONY: check setup build test lint format smoke hooks skills agents harness packages run clean
 
-check: hooks skills harness packages build lint test smoke
-	@echo "CHECK PASSED: hooks, skills, harness, packages, build, format, tests, smoke"
+check: hooks skills agents harness packages build lint test smoke
+	@echo "CHECK PASSED: hooks, skills, agents, harness, packages, build, format, tests, smoke"
 
 setup:
 	dotnet tool restore
@@ -61,9 +61,17 @@ skills:
 		echo "CHECK FAILED at skills. .claude/skills differs from .agents/skills. Edit .agents/skills, then run: rm -rf .claude/skills && cp -R .agents/skills .claude/skills"; \
 		exit 1; }
 
+agents:
+	@generated=$$(mktemp -d); \
+	bash scripts/agent/sync-agents.sh .claude/agents $$generated/agents && diff -r $$generated/agents .codex/agents > /dev/null; drift=$$?; \
+	rm -rf $$generated; \
+	[ $$drift -eq 0 ] || { \
+		echo "CHECK FAILED at agents. .codex/agents differs from .claude/agents. Edit .claude/agents, then run: bash scripts/agent/sync-agents.sh"; \
+		exit 1; }
+
 harness:
 	@mkdir -p $(LOGS)
-	@{ bash scripts/agent/feature.test.sh && bash scripts/agent/run.test.sh && bash scripts/agent/github-sync.test.sh; } > $(LOGS)/harness.log 2>&1 || { \
+	@{ bash scripts/agent/feature.test.sh && bash scripts/agent/run.test.sh && bash scripts/agent/github-sync.test.sh && bash scripts/agent/sync-agents.test.sh; } > $(LOGS)/harness.log 2>&1 || { \
 		cat $(LOGS)/harness.log; \
 		echo "CHECK FAILED at harness. A script in scripts/agent broke a rule its tests pin down. Fix the script, not the test, unless the rule changed."; \
 		exit 1; }

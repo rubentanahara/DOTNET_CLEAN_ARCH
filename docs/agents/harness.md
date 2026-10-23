@@ -7,7 +7,7 @@ Each section says whether it is **built** or **planned**. Keep this file true: c
 ## 1. The five subsystems (built)
 | Subsystem | Here |
 |---|---|
-| Instructions | `AGENTS.md` routes to `docs/agents/*.md`. Skills `feature` and `ship` in `.agents/skills/`, copied to `.claude/skills/`. |
+| Instructions | `AGENTS.md` routes to `docs/agents/*.md`. Skills `feature` and `ship` in `.agents/skills/`, copied to `.claude/skills/`. Subagents in `.claude/agents/`, generated into `.codex/agents/` by `scripts/agent/sync-agents.sh`. |
 | Tools | `make` targets, `scripts/agent/feature.sh`. |
 | Environment | `make setup`, `global.json`, SQLite in memory. Nothing external is needed. |
 | State | `feature_list.json` (scope and state), `PROGRESS.md` (why and what next), git history. |

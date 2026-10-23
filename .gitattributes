@@ -1,2 +1,4 @@
 *.sh text eol=lf
 Makefile text eol=lf
+.claude/agents/*.md text eol=lf
+.codex/agents/*.toml text eol=lf
