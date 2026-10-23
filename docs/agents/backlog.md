@@ -48,6 +48,7 @@ Change it only through `scripts/agent/feature.sh`. The script owns `state` and `
 | `feature.sh scope <id>` | Lists the files changed on this branch that the story does not own. `done` runs the same check. |
 | `feature.sh unblock <id>` | Makes a blocked story `not_started` again, so it can run. |
 | `feature.sh block <id> "<reason>"` | Parks a story that something outside the repo stops. Stories that depend on it leave the waves until it is unblocked with `start`. |
+| `feature.sh reset` | Removes every sprint, epic and story, and keeps `project_title`, `priority_legend` and `shared`. Refuses while a story is active. |
 
 A fragment for `add` has the same shape as the file. Name an existing epic by `id` to add stories to it; a new epic also needs `title` and `sprint`:
 ```bash
@@ -63,3 +64,12 @@ JSON
 `start`, `done` and `block` also update the story's GitHub issue and board card (`scripts/agent/github-sync.sh`, see `docs/agents/harness.md`). A failed update never undoes the state change.
 
 `add` never edits an existing story or sprint. Changing the scope of one is a human decision: a person edits it in a pull request and says why there. Agents never edit the file by hand.
+
+## Start over with an empty backlog
+For a new project made with `make rename`, the repo and the board are new, so only the file needs emptying: run `scripts/agent/feature.sh reset`, then add your own stories with `feature.sh add`.
+
+In a repo whose backlog is already on GitHub, the old issues must go too: the sync finds issues by the id in their title, so a new F01 would take over the old `F01 · …` issue.
+1. On a branch, run `scripts/agent/feature.sh reset`.
+2. Run `scripts/agent/github-sync.sh reset` to list what the sync owns: every issue carrying its `<!-- harness-sync sha=… -->` marker, every issue labelled `story` (the story form), and the project.
+3. Run `scripts/agent/github-sync.sh reset --yes` yourself in a terminal and type the repo name. It deletes those issues and the project for good; GitHub cannot restore them. It refuses without a terminal, so an agent cannot run it.
+4. Open the pull request. After the merge, the sync creates an empty project.

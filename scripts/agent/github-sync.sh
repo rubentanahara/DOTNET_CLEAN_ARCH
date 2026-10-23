@@ -8,7 +8,8 @@ readonly USAGE='Usage:
   scripts/agent/github-sync.sh issue <id>   print the issue number of a story or epic
   scripts/agent/github-sync.sh intake       add a story for every new story-form issue from an author with write access
   scripts/agent/github-sync.sh pull         write story edits made on GitHub into feature_list.json (scripts/agent/inbound.sh opens the pull request)
-  scripts/agent/github-sync.sh pull-board   turn card moves on the board into feature_list.json changes, or undo them'
+  scripts/agent/github-sync.sh pull-board   turn card moves on the board into feature_list.json changes, or undo them
+  scripts/agent/github-sync.sh reset        list the issues and the project the sync owns; reset --yes deletes them for good'
 readonly FEATURE_SCRIPT=scripts/agent/feature.sh
 readonly INVALID_PATH_REGEX='[*?\[]|^/|(^|/)\.\.(/|$)'
 readonly BODY_FIELDS_JQ='(gsub("\r"; "") | split("\n")) as $lines
@@ -81,6 +82,8 @@ main() {
     "intake 1") intake_stories ;;
     "pull 1") pull_backlog ;;
     "pull-board 1") pull_board ;;
+    "reset 1") print_reset_plan ;;
+    "reset 2") [[ "$2" == --yes ]] || fail "$USAGE"; delete_github_backlog ;;
     *) fail "$USAGE" ;;
   esac
 }
@@ -681,6 +684,47 @@ desired_items() {
                "| \(ref($epic.id)) | \(if has("sprint") then .sprint else $epic.sprint end // "parked") | \(.priority) | \(.estimate) | \(.area) | `\(.test_filter)` |",
                "", "**State:** `\(.state)`\(if (.evidence // "") != "" then ". Evidence: \(.evidence)" else "" end)", "", $footer]
             | join("\n"))})' "$FEATURES_FILE"
+}
+
+print_reset_plan() {
+  load_reset_targets
+  list_reset_targets
+  echo "Nothing is deleted yet. GitHub cannot restore deleted issues: run scripts/agent/github-sync.sh reset --yes in a terminal to delete them."
+}
+
+delete_github_backlog() {
+  load_reset_targets
+  list_reset_targets
+  confirm_reset
+  local number title
+  while IFS=$'\t' read -r number title; do
+    [[ -n "$number" ]] || continue
+    gh issue delete "$number" --repo "$REPO" --yes > /dev/null
+    report "deleted issue #$number $title"
+  done <<< "$RESET_ISSUES"
+  [[ -n "$PROJECT_NUMBER" ]] || return 0
+  gh project delete "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" > /dev/null
+  report "deleted project #$PROJECT_NUMBER $PROJECT_TITLE"
+}
+
+list_reset_targets() {
+  echo "The sync owns these, and reset --yes deletes them for good:"
+  sed 's/^\([0-9]*\)\t/  issue #\1 /' <<< "$RESET_ISSUES" | grep -v '^$' || echo "  no issues"
+  [[ -z "$PROJECT_NUMBER" ]] || echo "  project #$PROJECT_NUMBER $PROJECT_TITLE"
+}
+
+confirm_reset() {
+  [[ -t 0 ]] || fail "Nothing deleted: reset --yes cannot be undone, so a person confirms it at a terminal. Run it yourself in a terminal."
+  local answer
+  read -r -p "Type $REPO to delete them for good: " answer
+  [[ "$answer" == "$REPO" ]] || fail "Nothing deleted: the answer was not $REPO."
+}
+
+load_reset_targets() {
+  load_repository
+  RESET_ISSUES=$(gh issue list --repo "$REPO" --state all --limit "$ISSUE_LIST_LIMIT" --json number,title,body,labels \
+    | jq -r '.[] | select((.body | contains("<!-- harness-sync sha=")) or ([.labels[].name] | index("story"))) | "\(.number)\t\(.title)"')
+  PROJECT_NUMBER=$(find_project_number)
 }
 
 graphql() {
