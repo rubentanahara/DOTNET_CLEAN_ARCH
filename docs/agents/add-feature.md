@@ -5,7 +5,8 @@ Notes is the reference slice: open the matching Notes file at each step and copy
 Work inside out, and make each layer build before starting the next.
 
 ## 0. Before coding
-- `scripts/agent/feature.sh add <id> "<behavior>" "FullyQualifiedName~<Feature>EndpointTests"`, then `scripts/agent/feature.sh start <id>`.
+- The story must exist in `feature_list.json`. Add it with `scripts/agent/feature.sh add` if it does not (fragment format in `docs/agents/backlog.md`), with `"test_filter": "FullyQualifiedName~<Feature>EndpointTests"`.
+- Run `scripts/agent/feature.sh start <id>`.
 
 ## 1. Domain: `src/CleanTemplate.Domain/Models/<Feature>/`
 - `<Entity>.cs`: a `sealed` class that inherits `Entity`, with a private constructor and static factories that call `Raise(...)` for each domain event. Add `Rehydrate(...)` for loading without events. Reference: `Note.cs`.

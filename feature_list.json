@@ -1,30 +1,93 @@
-[
-  {
-    "id": "F01",
-    "behavior": "GET /test returns the seeded test string",
-    "test_filter": "FullyQualifiedName~TestEndpointTests",
-    "state": "passing",
-    "evidence": "template baseline"
+{
+  "project_title": "CleanTemplate",
+  "priority_legend": {
+    "P0": "On the critical path, or the reference shape other slices copy.",
+    "P1": "In scope but not on the critical path.",
+    "P2": "Polish. Drop first if time is short.",
+    "P3": "Parked. Not scheduled."
   },
-  {
-    "id": "F02",
-    "behavior": "Notes CRUD over HTTP: create, get, list, update and delete; a blank title returns 400 and a missing note returns 404",
-    "test_filter": "FullyQualifiedName~NotesEndpointTests",
-    "state": "passing",
-    "evidence": "template baseline"
-  },
-  {
-    "id": "F03",
-    "behavior": "Sender dispatches each request to its handler and Publisher dispatches domain events to their handlers",
-    "test_filter": "FullyQualifiedName~Common.Messaging",
-    "state": "passing",
-    "evidence": "template baseline"
-  },
-  {
-    "id": "F04",
-    "behavior": "Project references follow the Clean Architecture dependency rule",
-    "test_filter": "FullyQualifiedName~LayerDependencyTests",
-    "state": "passing",
-    "evidence": "template baseline"
-  }
-]
+  "sprints": [
+    {
+      "sprint": 1,
+      "goal": "The template ships working reference slices.",
+      "outcome": "make check passes and every slice has tests an agent can copy."
+    }
+  ],
+  "epics": [
+    {
+      "id": "EPIC-TEMPLATE",
+      "title": "Template reference slices",
+      "sprint": 1,
+      "summary": "The example code the template ships with. Replace these stories with your own after ./rename.sh.",
+      "stories": [
+        {
+          "id": "F01",
+          "name": "Seeded test endpoint",
+          "title": "As a template user, I want GET /test to return the seeded test string so that I can see the API reach the database.",
+          "area": "backend",
+          "priority": "P0",
+          "estimate": "S",
+          "acceptance_criteria": [
+            "Given the seeded database, When I call GET /test, Then it returns the seeded test string."
+          ],
+          "depends_on": [],
+          "tasks": [],
+          "test_filter": "FullyQualifiedName~TestEndpointTests",
+          "state": "passing",
+          "evidence": "template baseline"
+        },
+        {
+          "id": "F02",
+          "name": "Notes CRUD",
+          "title": "As an API client, I want to create, read, list, update and delete notes so that the template has a complete reference slice.",
+          "area": "backend",
+          "priority": "P0",
+          "estimate": "S",
+          "acceptance_criteria": [
+            "Given a valid note, When I create, get, list, update and delete it, Then each call succeeds with the matching status code.",
+            "Given a blank title, When I create or update a note, Then the API returns 400.",
+            "Given a note that does not exist, When I get, update or delete it, Then the API returns 404."
+          ],
+          "depends_on": [],
+          "tasks": [],
+          "test_filter": "FullyQualifiedName~NotesEndpointTests",
+          "state": "passing",
+          "evidence": "template baseline"
+        },
+        {
+          "id": "F03",
+          "name": "In-house messaging",
+          "title": "As a developer, I want Sender and Publisher to dispatch requests and domain events so that the template needs no MediatR.",
+          "area": "backend",
+          "priority": "P0",
+          "estimate": "S",
+          "acceptance_criteria": [
+            "Given a registered handler, When Sender sends its request, Then that handler runs.",
+            "Given registered event handlers, When Publisher publishes the domain events of an entity, Then each handler runs."
+          ],
+          "depends_on": [],
+          "tasks": [],
+          "test_filter": "FullyQualifiedName~Common.Messaging",
+          "state": "passing",
+          "evidence": "template baseline"
+        },
+        {
+          "id": "F04",
+          "name": "Layer dependency rule",
+          "title": "As a maintainer, I want project references checked against the Clean Architecture dependency rule so that layers cannot leak.",
+          "area": "architecture",
+          "priority": "P0",
+          "estimate": "S",
+          "acceptance_criteria": [
+            "Given the solution, When the architecture tests run, Then each project references only the layers AGENTS.md allows."
+          ],
+          "depends_on": [],
+          "tasks": [],
+          "test_filter": "FullyQualifiedName~LayerDependencyTests",
+          "state": "passing",
+          "evidence": "template baseline"
+        }
+      ]
+    }
+  ]
+}

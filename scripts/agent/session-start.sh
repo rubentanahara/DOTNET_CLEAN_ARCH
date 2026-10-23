@@ -3,7 +3,9 @@ set -uo pipefail
 
 readonly PROGRESS_FILE=PROGRESS.md
 readonly FEATURES_FILE=feature_list.json
+readonly FEATURE_SCRIPT=scripts/agent/feature.sh
 readonly PROGRESS_MAX_LINES=60
+readonly WAVES_SHOWN=5
 readonly LOG_FILE=.agent/session-start.log
 readonly FINGERPRINT_SCRIPT=scripts/agent/tree-fingerprint.sh
 
@@ -16,8 +18,17 @@ readonly BASELINE_RETENTION_DAYS=7
 
 cd "$(git rev-parse --show-toplevel)" || exit 0
 
-open_features() {
-  jq -r '.[] | select(.state != "passing") | "\(.id) [\(.state)] \(.behavior)"' "$FEATURES_FILE" 2> /dev/null
+open_story_count() {
+  jq '[.epics[].stories[] | select(.state != "passing")] | length' "$FEATURES_FILE" 2> /dev/null || echo 0
+}
+
+backlog_summary() {
+  bash "$FEATURE_SCRIPT" status 2>&1
+  echo
+  echo "Ready now, wave by wave (stories on one line can run in parallel):"
+  local waves
+  waves=$(bash "$FEATURE_SCRIPT" waves 2>&1) || { echo "$waves"; return; }
+  echo "${waves:-Nothing. Every scheduled story is passing.}" | head -n "$WAVES_SHOWN"
 }
 
 progress_excerpt() {
@@ -59,15 +70,14 @@ context=$(
   echo "## $PROGRESS_FILE"
   progress_excerpt
   echo
-  echo "## Open features in $FEATURES_FILE (anything not passing)"
-  open_features | grep . || echo "None. Every feature is passing."
+  echo "## Backlog in $FEATURES_FILE (scripts/agent/feature.sh show <id> prints one story)"
+  backlog_summary
   echo
   echo "## make check"
   echo "$check_output"
 )
 
-open_count=$(open_features | grep -c .)
-notice="session-start hook ran in $cli: loaded PROGRESS.md and $open_count open feature(s). make check: $check_result"
+notice="session-start hook ran in $cli: loaded PROGRESS.md and $(open_story_count) open story(ies). make check: $check_result"
 mkdir -p "$(dirname "$LOG_FILE")"
 record_session_baseline
 echo "$(date '+%Y-%m-%d %H:%M:%S') $notice" >> "$LOG_FILE"
